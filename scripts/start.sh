@@ -5,7 +5,8 @@ set -e
 if [ "$FALKORDB_HOST" = "127.0.0.1" ] || [ "$FALKORDB_HOST" = "localhost" ]; then
   mkdir -p "$FALKORDB_DATA_PATH"
   redis-server --protected-mode yes --bind 127.0.0.1 --port "$FALKORDB_PORT" \
-    --dir "$FALKORDB_DATA_PATH" --loadmodule "$FALKORDB_BIN_PATH/falkordb.so" $FALKORDB_ARGS \
+    --dir "$FALKORDB_DATA_PATH" --appendonly yes --appendfsync everysec \
+    --loadmodule "$FALKORDB_BIN_PATH/falkordb.so" $FALKORDB_ARGS \
     --daemonize yes
   until redis-cli -p "$FALKORDB_PORT" ping >/dev/null 2>&1; do sleep 0.2; done
 fi

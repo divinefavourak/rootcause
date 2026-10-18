@@ -370,7 +370,7 @@
         ${badge(r.status)}
       </div>
       <p class="rc-why">${esc(d.explanation || "")}</p>
-      <p class="rc-source">${d.explanation_source === "ai" ? "Explained by Claude from your graph results" : "Explained from your graph results"}</p>
+      <p class="rc-source">${d.explanation_source === "ai" ? "Explained by AI from your graph results" : "Explained from your graph results"}</p>
       <div class="rc-actions">
         <button class="btn btn-primary" type="button" data-action="quiz">Test me on ${esc(r.name)}</button>
         ${speakerHTML("diagnosis")}
@@ -485,6 +485,25 @@
     box.classList.add("has-data");
     $("#homeMain").classList.add("has-results");
     if (animate) countUp($("#rcNumber"), d.root.score);
+    if (d.explanation_source !== "ai") fetchExplanation(d);
+  }
+
+  // The AI explanation arrives after the result; swap it in only if this diagnosis is still on screen.
+  const explaining = new Set();
+  async function fetchExplanation(d) {
+    const key = `${state.student?.id}:${d.stuck.id}:${d.root.id}:${d.root.score}`;
+    if (explaining.has(key)) return;
+    explaining.add(key);
+    try {
+      const r = await api("/api/explain", { student_id: state.student.id, concept_id: d.stuck.id });
+      if (r.explanation_source !== "ai" || state.diagnosis !== d || r.root_id !== d.root.id) return;
+      d.explanation = r.explanation;
+      d.explanation_source = "ai";
+      store.set("diag:" + state.student.id, d);
+      const why = $(".rc-why"), src = $(".rc-source");
+      if (why) { why.classList.add("swap"); why.textContent = r.explanation; }
+      if (src) src.textContent = "Explained by AI from your graph results";
+    } catch { /* keep the template */ } finally { explaining.delete(key); }
   }
 
   // ------------------------------------------------------------------ full-screen root map

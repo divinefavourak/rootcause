@@ -401,6 +401,7 @@ main { max-width: 640px; margin: 0 auto; padding: var(--s4) var(--s4) 0; }
 .notes-ex b, .notes-trap b { display: block; font-size: var(--fs-small); }
 .notes-links { color: var(--muted); padding: 0 var(--s1); }
 .notes > :last-child { margin-bottom: var(--s3); }
+.rc-why.swap { animation: fadeIn .4s var(--ease); }
 .rc-source { font-size: var(--fs-small); color: var(--muted); font-weight: 650; margin-top: calc(-1 * var(--s2)); }
 .plan-teaser { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); flex-wrap: wrap; }
 

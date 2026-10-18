@@ -81,7 +81,7 @@ ORDER BY unit, name
 """
 
 # Study notes for the topics in a plan: each concept's stored notes (hand-written
-# or saved earlier from Claude), plus its direct prerequisites and the topics it
+# or saved earlier from the AI), plus its direct prerequisites and the topics it
 # directly unlocks, so notes can always say what it builds on and leads to.
 CONCEPT_NOTES = """
 UNWIND $ids AS cid
@@ -93,7 +93,7 @@ RETURN c.id AS id, c.name AS name, c.summary AS summary, c.note_points AS points
        c.note_example AS example, c.note_trap AS trap, builds_on, collect(nxt.name) AS leads_to
 """
 
-# Save study notes Claude wrote for a concept back onto the concept node, so they
+# Save study notes the AI wrote for a concept back onto the concept node, so they
 # are generated once and then served from the graph.
 SAVE_NOTES = """
 UNWIND $rows AS row

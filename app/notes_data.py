@@ -1,7 +1,7 @@
 """Hand-written study notes for the core IFT 211 concepts.
 
 Each entry: (three key points, one worked example, one common trap).
-Concepts not listed here get notes from Claude (saved into the graph) or, without an API key,
+Concepts not listed here get notes written by the AI (saved into the graph) or, without an API key,
 notes built from the graph itself (what the topic builds on and what it unlocks).
 """
 

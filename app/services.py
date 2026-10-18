@@ -1,6 +1,7 @@
 """Business logic. Every fact comes from a Cypher query in queries.py; this file only shapes results."""
 import random
 import re
+import threading
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -107,16 +108,14 @@ def _task_for(step: dict, stuck_id: str) -> tuple[str, int]:
 
 
 def study_notes(ids: list[str]) -> dict:
-    """Notes per concept: stored in the graph, else written once by Claude and saved, else built from the graph."""
+    """Notes per concept: stored in the graph, else written once by the AI and saved, else built from the graph."""
     rows = db.ro(Q.CONCEPT_NOTES, {"ids": ids})
-    missing = [r for r in rows if not r["points"]]
-    if missing:
-        written = llm.study_notes(missing)
-        if written:
-            known = {r["id"] for r in missing}
-            written = [w for w in written if w["id"] in known]
-            db.run(Q.SAVE_NOTES, {"rows": written})
-            rows = db.ro(Q.CONCEPT_NOTES, {"ids": ids})
+    missing = [r for r in rows if not r["points"] and r["id"] not in _notes_in_flight]
+    if missing and llm.enabled():
+        # Never make the student wait: write the notes in the background and save them to the graph.
+        # Until they land, the plan shows notes built from the graph.
+        _notes_in_flight.update(r["id"] for r in missing)
+        threading.Thread(target=_write_notes, args=(missing,), daemon=True).start()
     notes = {}
     for r in rows:
         links = []
@@ -129,6 +128,19 @@ def study_notes(ids: list[str]) -> dict:
         else:
             notes[r["id"]] = {"points": [r["summary"]] + links, "example": None, "trap": None, "links": []}
     return notes
+
+
+_notes_in_flight: set = set()
+
+
+def _write_notes(missing: list[dict]) -> None:
+    try:
+        written = llm.study_notes(missing)
+        if written:
+            known = {r["id"] for r in missing}
+            db.run(Q.SAVE_NOTES, {"rows": [w for w in written if w["id"] in known]})
+    finally:
+        _notes_in_flight.difference_update(r["id"] for r in missing)
 
 
 def fix_plan(student_id: str, concept_id: str) -> list[dict]:
@@ -155,7 +167,7 @@ def fix_plan(student_id: str, concept_id: str) -> list[dict]:
 _explain_cache: dict = {}
 
 
-def _explanation(stuck: dict, root: dict, chain_names: list[str]) -> tuple[str, str]:
+def _explanation(stuck: dict, root: dict, chain_names: list[str], use_ai: bool) -> tuple[str, str]:
     if root["id"] == stuck["id"]:
         template = (f"Good news: your foundations for {stuck['name']} look solid. "
                     f"The topic itself is the part to work on, so let's practise it directly.")
@@ -164,10 +176,21 @@ def _explanation(stuck: dict, root: dict, chain_names: list[str]) -> tuple[str, 
         template = (f"{stuck['name']} is built on {root['name']}, and your score there is {score}. "
                     f"Fix that first and everything above it gets easier.")
     key = (stuck["id"], root["id"], root["score"])
-    if key not in _explain_cache:
+    if use_ai and key not in _explain_cache:
         _explain_cache[key] = llm.explain_root_cause(stuck["name"], root["name"], root["score"], chain_names)
-    text = _explain_cache[key]
+    text = _explain_cache.get(key)
     return (text, "ai") if text else (template, "template")
+
+
+def explain(student_id: str, concept_id: str) -> dict:
+    """The friendly explanation, fetched after the diagnosis so the AI never slows the result down."""
+    _check_student(student_id)
+    stuck = get_concept(concept_id)
+    params = {"student_id": student_id, "concept_id": concept_id}
+    root = db.ro(Q.ROOT_CAUSE, params)[0]
+    chain = [r["name"] for r in db.ro(Q.ROOT_CHAIN, {**params, "root_id": root["id"]})]
+    text, source = _explanation(stuck, root, chain, use_ai=True)
+    return {"root_id": root["id"], "explanation": text, "explanation_source": source}
 
 
 def _graph_view(concept_id, overview_rows):
@@ -209,7 +232,8 @@ def diagnose(student_id: str, concept_id: str, explain: bool = True) -> dict:
         "plan": fix_plan(student_id, concept_id),
     }
     if explain:
-        text, source = _explanation(stuck, root, [r["name"] for r in chain_rows])
+        # Only a cached AI explanation is used here; a fresh one comes from explain() afterwards.
+        text, source = _explanation(stuck, root, [r["name"] for r in chain_rows], use_ai=False)
         result["explanation"] = text
         result["explanation_source"] = source
         result["graph"] = _graph_view(concept_id, overview(student_id)["concepts"])
@@ -268,11 +292,12 @@ def graph_quiz(concept_id: str) -> list[dict]:
 def generate_quiz(student_id: str, concept_id: str) -> dict:
     _check_student(student_id)
     concept = get_concept(concept_id)
-    questions, source = llm.quiz_questions(concept["name"], concept["summary"]), "ai"
-    if not questions and concept_id in BANK:
-        questions, source = [
-            {"prompt": p, "options": o, "answer": a, "why": w} for p, o, a, w in BANK[concept_id]
-        ], "bank"
+    # Hand-written questions first (instant), then the AI, then questions built from the graph.
+    questions, source = None, "bank"
+    if concept_id in BANK:
+        questions = [{"prompt": p, "options": o, "answer": a, "why": w} for p, o, a, w in BANK[concept_id]]
+    if not questions:
+        questions, source = llm.quiz_questions(concept["name"], concept["summary"]), "ai"
     if not questions:
         questions, source = graph_quiz(concept_id), "graph"
 

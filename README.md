@@ -90,9 +90,10 @@ python -m scripts.test_queries     # seeds rootcause_test, prints every result, 
   (~170 KB gzipped); everything else on a page is ~30 KB.
 - **FastAPI** backend, plain **HTML/CSS/vanilla JS** frontend served by FastAPI. No framework, no CDN,
   no web fonts, about 30 KB gzipped for the whole page.
-- **Claude** (Anthropic API, optional) only for a friendly one-line explanation and for writing 3 quiz
-  questions. With no `ANTHROPIC_API_KEY` the app uses template text, a hand-written question bank, and
-  graph-built questions, so it always runs.
+- **AI via OpenRouter** (optional, any model; default `nvidia/nemotron-3-super-120b-a12b:free`) only for a
+  friendly explanation, quiz questions for topics without a hand-written set, and study notes. Every call
+  runs off the request path or under a hard deadline, so the app never waits on it. With no
+  `OPENROUTER_API_KEY` the app uses template text, the question bank and graph-built notes.
 - **Voice** via the browser's Web Speech API (en-NG first, en-US fallback) and `speechSynthesis` for
   Listen buttons. **No audio is ever recorded or sent**; only the final text goes to the backend.
   Typing always works; speech never auto-submits.
@@ -126,8 +127,8 @@ python -m scripts.seed               # loads IFT 211 + 2 demo students
 uvicorn app.main:app --reload        # landing: http://localhost:8000  app: http://localhost:8000/app
 ```
 
-Optional: `cp .env.example .env` and set `ANTHROPIC_API_KEY` (and `ANTHROPIC_MODEL`, default
-`claude-opus-5-5`). To point at **FalkorDB Cloud**, set `FALKORDB_HOST`, `FALKORDB_PORT`,
+Optional: `cp .env.example .env` and set `OPENROUTER_API_KEY` (and `OPENROUTER_MODEL`, any OpenRouter
+model id). To point at **FalkorDB Cloud**, set `FALKORDB_HOST`, `FALKORDB_PORT`,
 `FALKORDB_USERNAME`, `FALKORDB_PASSWORD` in `.env`, then run the seed.
 
 On Windows without Docker Desktop: run `docker compose up -d` inside WSL from the repo folder
@@ -142,7 +143,8 @@ docker build -t rootcause . && docker run -p 8000:8000 rootcause
 ### Deploy
 
 Deployed on **Railway** (`railway up`, config in `railway.json`, Dockerfile build, one container with
-FalkorDB inside that seeds itself on boot). The same Dockerfile also deploys to **Fly.io** (`fly deploy`, config in `fly.toml`) or **Render**
+FalkorDB inside). FalkorDB writes to a Railway volume at `/var/lib/falkordb/data` with append-only
+persistence, so student memory survives restarts; the seed only runs when the graph is empty. The same Dockerfile also deploys to **Fly.io** (`fly deploy`, config in `fly.toml`) or **Render**
 (`render.yaml` blueprint, Docker runtime). Both give HTTPS, which the mic needs. Set
 `FALKORDB_HOST` etc. to use FalkorDB Cloud instead of the bundled server.
 
@@ -166,17 +168,18 @@ path highlighting, sap animation along the diagnosed chain, labels that stay 14p
 
 ## How the AI explanation works
 
-The graph does the diagnosis; Claude only puts it into words.
+The graph does the diagnosis; the AI only puts it into words.
 
 1. `ROOT_CAUSE` and `ROOT_CHAIN` (pure Cypher) pick the root cause, its score and the chain.
-2. `app/llm.py` sends those facts, and nothing else, to Claude with a short persona prompt
+2. The page shows the result straight away with a template sentence, then calls `/api/explain`.
+   `app/llm.py` sends those facts, and nothing else, to the model through OpenRouter with a short persona prompt
    ("a warm, calm older student", at most 2 sentences, under 45 words). No student name or history is sent.
 3. The reply is cached per (stuck topic, root, score), so a repeat diagnosis costs nothing.
 4. Any failure (no key, timeout, refusal) falls back to a template built from the same facts. The UI says
-   which one you're seeing ("Explained by Claude from your graph results" vs "Explained from your graph results").
+   which one you're seeing ("Explained by AI from your graph results" vs "Explained from your graph results").
 
 The same pattern drives quiz questions (hand-written bank, then graph-built questions as fallbacks) and study
-notes (hand-written, then Claude-written and saved to the graph, then graph-built).
+notes (hand-written, then AI-written in the background and saved to the graph, then graph-built).
 
 ## Accessibility
 

@@ -71,6 +71,11 @@ def diagnose(body: DiagnoseIn):
     return services.diagnose(body.student_id, body.concept_id)
 
 
+@app.post("/api/explain")
+def explain(body: DiagnoseIn):
+    return services.explain(body.student_id, body.concept_id)
+
+
 @app.post("/api/quiz/generate")
 def quiz_generate(body: QuizIn):
     return services.generate_quiz(body.student_id, body.concept_id)
