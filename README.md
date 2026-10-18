@@ -14,7 +14,7 @@ Built for the **WeMakeDevs Graph Hacks** hackathon. Track: **Agent Memory and Co
   <img src="screenshots/09_quiz_review_390_light.png" width="240" alt="Quiz review with correct and wrong answers">
   <img src="screenshots/11_after_quiz_390_dark.png" width="240" alt="Diagnosis after the quiz, dark mode">
 </p>
-<img src="screenshots/04_diagnosis_1280_light.png" width="760" alt="Desktop two-column layout">
+<img src="screenshots/04_diagnosis_1280_light.png" width="760" alt="Desktop two-column layout with the interactive root map">
 
 ---
 
@@ -58,7 +58,7 @@ Every Cypher statement lives in one file with a plain-English comment above it.
 | `STUDENT_OVERVIEW` | Every concept with Weak (<50) / Okay (50–69) / Strong (70+) / Not tried, plus how many later topics it unlocks (downstream traversal). |
 | `RESOLVE_CONCEPT` | FalkorDB full-text index (RediSearch, English stemming) over name and aliases, with fuzzy and prefix terms. Exact or whole-phrase alias matches rank first; confidence decides between auto-select and "Did you mean...?" chips. |
 | `QUIZ_FACTS` | When there is no LLM and no hand-written question bank, builds a quiz from the graph itself: "Which topic should you learn before X?" (answer: a real prerequisite; distractors: things that come *after* X). |
-| `CONCEPT_NEIGHBOURHOOD` | Every concept on any path between root cause and stuck topic, for the optional graph view. |
+| `ROOT_SYSTEM_NODES` / `ROOT_SYSTEM_EDGES` | Everything upstream of the stuck topic (its whole "root system") with hop distance and how many topics each unlocks, plus the edges between them. Feeds the interactive Root map. |
 
 Run them all against a throwaway graph:
 
@@ -73,14 +73,16 @@ python -m scripts.test_queries     # seeds rootcause_test, prints every result, 
 3. Tap **Test me on De Morgan's Theorems**, answer 3 questions (tap or say "B", "the second one").
 4. **See what changed**: the De Morgan node heals from Weak to Strong, the line turns green, and the
    diagnosis re-runs: the next root is **SR Latch (42%)**. The plan moves on with it.
-5. Progress tab: every topic in the course, grouped by unit, with the count of topics each one unlocks.
-6. Try **Amaka E.** with *"k map"*: root cause is **Gray Code**.
+5. Open **Root map**: the whole upstream root system of Flip-Flops (21 concepts). Drag to pan, zoom,
+   tap any node to light its path up to the stuck topic, and diagnose from there.
+6. Progress tab: every topic in the course, grouped by unit, with the count of topics each one unlocks.
+7. Try **Amaka E.** with *"k map"*: root cause is **Gray Code**.
 
 ## Stack
 
 - **FalkorDB** (graph DB, full-text index) via Docker, Python client `falkordb`
 - **FastAPI** backend, plain **HTML/CSS/vanilla JS** frontend served by FastAPI. No framework, no CDN,
-  no web fonts, about 22 KB gzipped for the whole page.
+  no web fonts, about 30 KB gzipped for the whole page.
 - **Claude** (Anthropic API, optional) only for a friendly one-line explanation and for writing 3 quiz
   questions. With no `ANTHROPIC_API_KEY` the app uses template text, a hand-written question bank, and
   graph-built questions, so it always runs.
@@ -89,7 +91,7 @@ python -m scripts.test_queries     # seeds rootcause_test, prints every result, 
   Typing always works; speech never auto-submits.
 - **PWA**: manifest, maskable icons, service worker caching the shell and the last diagnosis.
 
-Lighthouse (mobile, local): Performance 100, Accessibility 100, Best Practices 100, SEO 100.
+Lighthouse (mobile, local): Performance 99, Accessibility 100, Best Practices 100, SEO 100.
 
 ## API
 
@@ -142,9 +144,20 @@ python -m scripts.screenshots --quick  # 360px only
 python -m scripts.make_icons           # icon.svg -> PWA PNGs + og:image
 ```
 
+## Design
+
+Neobrutalist on purpose: ink outlines, hard offset shadows, buttons that physically press in, sticker
+labels. One idea is repeated everywhere: the **root line**, a vertical stroke through status nodes from the
+stuck topic down to the root cause (logo, splash, chain, progress list, loading skeleton). The 3D pieces
+are hand-drawn inline SVG (an isometric stack of "knowledge layers" with a sprout on top and an amber root
+layer, shaded spheres for every node), so there are no image downloads and they follow the theme.
+The **Root map** is a hand-rolled SVG graph (no library): layered by hop distance, pan / pinch / zoom,
+path highlighting, sap animation along the diagnosed chain, labels that stay 14px at any zoom.
+
 ## Accessibility
 
-Real ordered-list HTML for the chain (the graph view is optional and the list is always there), status
+Real ordered-list HTML for the chain (the root map is extra and the list is always there below it; map
+nodes are focusable buttons with full spoken labels), status
 always shown as icon + text (never colour alone), 48px touch targets, 16px body text, skip link,
 visible amber focus ring, `aria-live` for loading, results and voice state, full keyboard use,
 `prefers-reduced-motion` and `prefers-color-scheme` respected, plus a manual theme toggle.

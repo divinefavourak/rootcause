@@ -27,3 +27,10 @@ The root line: a vertical stroke through circular status nodes, stuck topic on t
 - https://uxdesign.cc/down-the-wrong-path-the-disaster-of-the-latest-duolingo-ui-update-a4cdd1e6ea1c
 - https://blakecrosley.com/guides/design/headspace
 - https://pmc.ncbi.nlm.nih.gov/articles/PMC8200521
+
+## Round 2 (user feedback: "looks vibecoded")
+- Switched to neobrutalism: 2.5px ink borders, hard 3px/6px offset shadows (green-tinted in dark mode),
+  press-in buttons, rotated sticker labels ("Root cause", "Day 1"), heavier type (850-900).
+- Added "3D" assets as inline SVG: isometric knowledge-layer stack (hero, picker, empty states, og:image)
+  and radial-gradient spheres with a specular highlight for every chain / map node.
+- Graph view became an interactive "Root map" of the whole upstream root system, default on desktop.

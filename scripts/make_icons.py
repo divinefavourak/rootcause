@@ -13,13 +13,14 @@ SVG = (ICONS / "icon.svg").read_text(encoding="utf-8")
 MASKABLE = SVG.replace('rx="112"', 'rx="0"').replace(
     '<path', '<g transform="translate(51 51) scale(.8)"><path', 1).replace("</svg>", "</g></svg>")
 
-OG = f"""<html><body style="margin:0;width:1200px;height:630px;background:#FAF8F3;display:flex;align-items:center;
+ART_JS = (ICONS.parent / "art.js").read_text(encoding="utf-8")
+OG = f"""<html><head><style>:root{{--shadow-color:#1A1A1A;--accent-glow:rgba(245,183,0,.32)}} .iso{{width:100%;height:auto}}</style></head><body style="margin:0;width:1200px;height:630px;background:#FAF8F3;display:flex;align-items:center;
 font-family:ui-rounded,'SF Pro Rounded','Segoe UI',system-ui,sans-serif;color:#1A1A1A">
 <div style="width:1200px;padding:0 96px;display:flex;align-items:center;gap:72px;box-sizing:border-box">
-  <div style="width:300px;height:300px;flex:none">{SVG.replace('<svg ', '<svg width="300" height="300" ')}</div>
+  <div id="art" style="width:300px;flex:none"></div>
   <div>
-    <div style="font-size:84px;font-weight:800;color:#0B5D3B;letter-spacing:-2px">RootCause</div>
-    <div style="font-size:42px;font-weight:600;line-height:1.25;margin-top:16px">Stuck on a topic? Find the weak<br>foundation underneath, then fix it<br>in 3 days.</div>
+    <div style="font-size:88px;font-weight:900;color:#1A1A1A;letter-spacing:-3px">RootCause</div>
+    <div style="font-size:40px;font-weight:700;line-height:1.25;margin-top:16px;max-width:640px">Stuck on a topic? Find the weak foundation underneath, then fix it in 3 days.</div>
     <div style="font-size:28px;color:#5B5B55;margin-top:24px">IFT 211 Digital Logic study agent</div>
   </div>
 </div></body></html>"""
@@ -39,6 +40,8 @@ def main():
             page.screenshot(path=str(ICONS / name), omit_background=True, clip={"x": 0, "y": 0, "width": size, "height": size})
         page.set_viewport_size({"width": 1200, "height": 630})
         page.set_content(OG)
+        page.add_script_tag(content=ART_JS)
+        page.evaluate("document.getElementById('art').innerHTML = RootArt.heroArt()")
         page.screenshot(path=str(ICONS / "og.png"))
         browser.close()
     print("icons written to", ICONS)
