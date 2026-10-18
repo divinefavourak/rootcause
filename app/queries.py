@@ -85,16 +85,42 @@ MATCH (c:Concept {id: $concept_id})
 RETURN c.id AS id, c.name AS name, c.unit AS unit, c.summary AS summary
 """
 
-# The prerequisite neighbourhood around a concept (for the optional graph view):
-# every edge where both ends are within two steps upstream of the concept.
-CONCEPT_NEIGHBOURHOOD = """
-MATCH (focus:Concept {id: $concept_id})
-MATCH (a:Concept)-[:PREREQUISITE_OF*0..2]->(focus)
-WITH collect(DISTINCT a) AS near
+# The prerequisite neighbourhood for the optional graph view: every concept on any
+# prerequisite path from the root cause up to the stuck concept, plus the stuck
+# concept's direct prerequisites. Return every PREREQUISITE_OF edge between them.
+CONCEPT_NEIGHBOURHOOD = f"""
+MATCH (root:Concept {{id: $root_id}}), (stuck:Concept {{id: $concept_id}})
+MATCH p = (root)-[:PREREQUISITE_OF*0..{12}]->(stuck)
+UNWIND nodes(p) AS n
+WITH stuck, collect(DISTINCT n) AS core
+OPTIONAL MATCH (pre:Concept)-[:PREREQUISITE_OF]->(stuck)
+WITH core, collect(DISTINCT pre) AS direct
+WITH core + direct AS near
 UNWIND near AS x
 MATCH (x)-[:PREREQUISITE_OF]->(y)
 WHERE y IN near
-RETURN x.id AS source, y.id AS target
+RETURN DISTINCT x.id AS source, x.name AS source_name, y.id AS target, y.name AS target_name
+"""
+
+
+# Facts for a quiz built straight from the graph when no LLM is available:
+# the concept's direct prerequisites and the concepts it directly unlocks, every
+# concept downstream of it (good "this is NOT a prerequisite" distractors), and
+# concepts with no prerequisite link to it at all (neutral distractors).
+QUIZ_FACTS = f"""
+MATCH (c:Concept {{id: $concept_id}})
+OPTIONAL MATCH (pre:Concept)-[:PREREQUISITE_OF]->(c)
+WITH c, collect(DISTINCT pre.name) AS direct_before
+OPTIONAL MATCH (c)-[:PREREQUISITE_OF]->(nxt:Concept)
+WITH c, direct_before, collect(DISTINCT nxt.name) AS direct_after
+OPTIONAL MATCH (c)-[:PREREQUISITE_OF*1..{MAX_HOPS}]->(down:Concept)
+WITH c, direct_before, direct_after, collect(DISTINCT down.name) AS all_after
+OPTIONAL MATCH (up:Concept)-[:PREREQUISITE_OF*1..{MAX_HOPS}]->(c)
+WITH c, direct_before, direct_after, all_after, collect(DISTINCT up.name) AS all_before
+MATCH (o:Concept)
+WHERE o.id <> c.id AND NOT o.name IN all_before AND NOT o.name IN all_after
+RETURN c.name AS name, c.summary AS summary, direct_before, direct_after,
+       all_after, all_before, collect({{name: o.name, summary: o.summary}}) AS unrelated
 """
 
 
@@ -137,7 +163,11 @@ LIMIT 1
 UNWIND range(0, length(p)) AS i
 WITH s, i, nodes(p)[i] AS n
 OPTIONAL MATCH (s)-[r:STRUGGLED_WITH|MASTERED]->(n)
-RETURN i AS step, n.id AS id, n.name AS name, r.score AS score, type(r) AS rel
+RETURN i AS step, n.id AS id, n.name AS name, r.score AS score, type(r) AS rel,
+       CASE WHEN r IS NULL THEN 'Not tried'
+            WHEN r.score < 50 THEN 'Weak'
+            WHEN r.score < 70 THEN 'Okay'
+            ELSE 'Strong' END AS status
 ORDER BY step
 """
 
@@ -197,7 +227,11 @@ WITH weak[0..{8}] + [{{id: stuck.id, name: stuck.name, summary: stuck.summary, s
 UNWIND range(0, size(steps) - 1) AS i
 RETURN 1 + toInteger(floor(i * 3.0 / size(steps))) AS day, i AS position,
        steps[i].id AS id, steps[i].name AS name, steps[i].summary AS summary,
-       steps[i].score AS score, steps[i].depth AS depth
+       steps[i].score AS score, steps[i].depth AS depth,
+       CASE WHEN steps[i].score IS NULL THEN 'Not tried'
+            WHEN steps[i].score < 50 THEN 'Weak'
+            WHEN steps[i].score < 70 THEN 'Okay'
+            ELSE 'Strong' END AS status
 ORDER BY position
 """
 
@@ -230,23 +264,28 @@ ORDER BY c.unit, c.name
 # Core query 5: resolve_concept
 # ---------------------------------------------------------------------------
 
-# Search the full-text index over concept name and aliases. Keep the top 3 hits.
-# Confidence: an exact name or alias match is 0.98. Otherwise a hit's share of the
-# top 3 scores (a single fuzzy hit gets 0.8), so a clear winner scores high and
-# three close guesses score low.
+# Search the full-text index over concept name and aliases (fuzzy + prefix terms).
+# For each hit, check (ignoring apostrophes) whether the student's words ARE the
+# name or an alias ("exact"), or CONTAIN one as a whole phrase ("phrase"). Rank
+# exact, then phrase, then search score, and keep the top 3.
+# Confidence: exact 0.98, phrase 0.9, otherwise the hit's share of the top-3
+# scores (a single fuzzy hit gets 0.8). A clear winner scores high, three close
+# guesses score low and the UI shows them as "Did you mean...?" chips.
 RESOLVE_CONCEPT = """
 CALL db.idx.fulltext.queryNodes('Concept', $search) YIELD node, score
-WITH node, score
-ORDER BY score DESC
+WITH node, score,
+     [toLower(replace(node.name, "'", ""))] + split(toLower(replace(node.aliases, "'", "")), ', ') AS names
+WITH node, score, $plain IN names AS exact,
+     any(n IN names WHERE size(n) > 2 AND (' ' + $plain + ' ') CONTAINS (' ' + n + ' ')) AS phrase
+ORDER BY exact DESC, phrase DESC, score DESC
 LIMIT 3
-WITH collect(node) AS nodes, collect(score) AS scores
-WITH nodes, scores, reduce(total = 0.0, x IN scores | total + x) AS total
-UNWIND range(0, size(nodes) - 1) AS i
-WITH nodes[i] AS c, scores[i] AS raw, total, size(nodes) AS hits,
-     (toLower(nodes[i].name) = $plain OR $plain IN split(toLower(nodes[i].aliases), ', ')) AS exact
-RETURN c.id AS id, c.name AS name, c.unit AS unit, raw, exact,
-       CASE WHEN exact THEN 0.98
-            WHEN hits = 1 THEN 0.8
-            ELSE raw / total END AS confidence
-ORDER BY exact DESC, raw DESC
+WITH collect({node: node, score: score, exact: exact, phrase: phrase}) AS hits
+WITH hits, reduce(total = 0.0, h IN hits | total + h.score) AS total
+UNWIND hits AS h
+RETURN h.node.id AS id, h.node.name AS name, h.node.unit AS unit, h.score AS raw, h.exact AS exact,
+       CASE WHEN h.exact THEN 0.98
+            WHEN h.phrase THEN 0.9
+            WHEN size(hits) = 1 THEN 0.8
+            ELSE h.score / total END AS confidence
+ORDER BY confidence DESC, raw DESC
 """

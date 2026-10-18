@@ -22,7 +22,7 @@ CONCEPTS = [
     ("truth_tables", "Truth Tables", "Gates and Boolean algebra", "truth table, truth tables, input output table", "Listing every input combination and the output it gives."),
     ("boolean_algebra", "Boolean Algebra", "Gates and Boolean algebra", "boolean, boolean algebra, boolean expressions, logic expressions", "Writing circuits as algebra with AND, OR and NOT."),
     ("boolean_laws", "Boolean Laws and Theorems", "Gates and Boolean algebra", "boolean laws, boolean theorems, boolean identities, absorption, distributive law", "Rules like absorption and distribution that simplify expressions."),
-    ("de_morgan", "De Morgan's Theorems", "Gates and Boolean algebra", "de morgan, demorgan, de morgans law, de morgan's theorem, demorgans", "Flipping AND to OR (and back) by inverting inputs and output."),
+    ("de_morgan", "De Morgan's Theorems", "Gates and Boolean algebra", "de morgan, demorgan, de morgans law, demorgans law, de morgan's theorem, demorgans", "Flipping AND to OR (and back) by inverting inputs and output."),
     ("canonical_forms", "Canonical Forms (SOP and POS)", "Gates and Boolean algebra", "sop, pos, sum of products, product of sums, canonical form, standard form", "Writing any function as a sum of products or product of sums."),
     ("minterms_maxterms", "Minterms and Maxterms", "Gates and Boolean algebra", "minterm, maxterm, minterms, maxterms, sigma notation", "Naming each row of a truth table as a product or sum term."),
     ("kmaps", "Karnaugh Maps", "Gates and Boolean algebra", "k map, kmap, k-map, karnaugh, karnaugh map, carnot map", "A grid that makes simplifying Boolean functions visual."),
