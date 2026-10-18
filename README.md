@@ -90,7 +90,8 @@ python -m scripts.test_queries     # seeds rootcause_test, prints every result, 
   (~170 KB gzipped); everything else on a page is ~30 KB.
 - **FastAPI** backend, plain **HTML/CSS/vanilla JS** frontend served by FastAPI. No framework, no CDN,
   no web fonts, about 30 KB gzipped for the whole page.
-- **AI via OpenRouter** (optional, any model; default `nvidia/nemotron-3-super-120b-a12b:free`) only for a
+- **AI via Groq or OpenRouter** (optional; Groq `llama-3.3-70b-versatile` when `GROQ_API_KEY` is set,
+  otherwise OpenRouter, default `nvidia/nemotron-3-super-120b-a12b:free`) only for a
   friendly explanation, quiz questions for topics without a hand-written set, and study notes. Every call
   runs off the request path or under a hard deadline, so the app never waits on it. With no
   `OPENROUTER_API_KEY` the app uses template text, the question bank and graph-built notes.
@@ -127,8 +128,8 @@ python -m scripts.seed               # loads IFT 211 + 2 demo students
 uvicorn app.main:app --reload        # landing: http://localhost:8000  app: http://localhost:8000/app
 ```
 
-Optional: `cp .env.example .env` and set `OPENROUTER_API_KEY` (and `OPENROUTER_MODEL`, any OpenRouter
-model id). To point at **FalkorDB Cloud**, set `FALKORDB_HOST`, `FALKORDB_PORT`,
+Optional: `cp .env.example .env` and set `GROQ_API_KEY` (fastest) or `OPENROUTER_API_KEY`. Models can be
+changed with `GROQ_MODEL` / `OPENROUTER_MODEL`. To point at **FalkorDB Cloud**, set `FALKORDB_HOST`, `FALKORDB_PORT`,
 `FALKORDB_USERNAME`, `FALKORDB_PASSWORD` in `.env`, then run the seed.
 
 On Windows without Docker Desktop: run `docker compose up -d` inside WSL from the repo folder

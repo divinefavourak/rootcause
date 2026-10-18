@@ -1,4 +1,5 @@
-"""Optional AI calls through OpenRouter. Every function returns None on any problem, and callers fall back to templates."""
+"""Optional AI calls through Groq (preferred, fast) or OpenRouter. Every function returns None on any
+problem, and callers fall back to templates, the question bank or graph-built notes."""
 import json
 import logging
 import os
@@ -9,16 +10,37 @@ from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeou
 
 log = logging.getLogger("rootcause.llm")
 
-API_URL = "https://openrouter.ai/api/v1/chat/completions"
-MODEL = os.getenv("OPENROUTER_MODEL", "nvidia/nemotron-3-super-120b-a12b:free")
+# Both speak the OpenAI chat-completions format. Groq wins when both keys are set because it is far faster.
+PROVIDERS = {
+    "groq": {
+        "key": "GROQ_API_KEY",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "model": os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
+        "json": "object",  # JSON mode; the schema is described in the prompt and validated after
+    },
+    "openrouter": {
+        "key": "OPENROUTER_API_KEY",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "model": os.getenv("OPENROUTER_MODEL", "nvidia/nemotron-3-super-120b-a12b:free"),
+        "json": "schema",  # strict JSON schema
+    },
+}
 TIMEOUT = 15
 # Hard wall-clock limits, so a slow model can never hold up a student.
 DEADLINE = {"explain": 20, "quiz": 10, "notes": 60}
 _pool = ThreadPoolExecutor(max_workers=4)
 
 
+def _provider():
+    for name, p in PROVIDERS.items():
+        key = os.getenv(p["key"])
+        if key:
+            return name, p, key
+    return None, None, None
+
+
 def enabled() -> bool:
-    return bool(os.getenv("OPENROUTER_API_KEY"))
+    return _provider()[0] is not None
 
 
 def _within(seconds: float, fn, *args):
@@ -38,38 +60,40 @@ def _json_text(text: str) -> str | None:
 
 
 def _ask(system: str, prompt: str, schema: dict | None = None, max_tokens: int = 2000) -> str | None:
-    key = os.getenv("OPENROUTER_API_KEY")
-    if not key:
+    name, p, key = _provider()
+    if not name:
         return None
     body = {
-        "model": MODEL,
+        "model": p["model"],
         "max_tokens": max_tokens,
         "temperature": 0.4,
         "messages": [{"role": "system", "content": system}, {"role": "user", "content": prompt}],
     }
     if schema:
-        body["response_format"] = {"type": "json_schema", "json_schema": {"name": "result", "strict": True, "schema": schema}}
-        body["messages"][1]["content"] += "\n\nReply with JSON only, matching the requested shape."
-    req = urllib.request.Request(
-        API_URL, data=json.dumps(body).encode("utf-8"), method="POST",
-        headers={
-            "Authorization": f"Bearer {key}",
-            "Content-Type": "application/json",
-            "HTTP-Referer": os.getenv("PUBLIC_URL", "https://rootcause-production-b767.up.railway.app"),
-            "X-Title": "RootCause",
-        },
-    )
+        body["messages"][1]["content"] += (
+            "\n\nReply with a single JSON object only, no other text. It must match this JSON schema:\n"
+            + json.dumps(schema)
+        )
+        if p["json"] == "schema":
+            body["response_format"] = {"type": "json_schema", "json_schema": {"name": "result", "strict": True, "schema": schema}}
+        else:
+            body["response_format"] = {"type": "json_object"}
+    headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
+    if name == "openrouter":
+        headers["HTTP-Referer"] = os.getenv("PUBLIC_URL", "https://rootcause-production-b767.up.railway.app")
+        headers["X-Title"] = "RootCause"
+    req = urllib.request.Request(p["url"], data=json.dumps(body).encode("utf-8"), method="POST", headers=headers)
     try:
         with urllib.request.urlopen(req, timeout=TIMEOUT) as res:
             data = json.loads(res.read().decode("utf-8"))
     except (urllib.error.URLError, TimeoutError, ValueError) as exc:  # network, auth, rate limit: the app must keep working
-        log.warning("OpenRouter call failed: %s", exc)
+        log.warning("%s call failed: %s", name, exc)
         return None
     try:
         choice = data["choices"][0]
         text = (choice["message"].get("content") or "").strip()
     except (KeyError, IndexError, TypeError):
-        log.warning("OpenRouter returned no choices: %s", str(data)[:200])
+        log.warning("%s returned no choices: %s", name, str(data)[:200])
         return None
     if not text or choice.get("finish_reason") == "content_filter":
         return None
