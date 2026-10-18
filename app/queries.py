@@ -38,7 +38,8 @@ MATCH (course:Course {code: $code})
 UNWIND $concepts AS row
 MERGE (c:Concept {id: row.id})
 SET c.name = row.name, c.unit = row.unit, c.aliases = row.aliases,
-    c.summary = row.summary, c.course = $code
+    c.summary = row.summary, c.course = $code,
+    c.note_points = row.note_points, c.note_example = row.note_example, c.note_trap = row.note_trap
 MERGE (course)-[:COVERS]->(c)
 """
 
@@ -77,6 +78,27 @@ MATCH (:Course {code: $course})-[:COVERS]->(c:Concept)
 OPTIONAL MATCH (pre:Concept)-[:PREREQUISITE_OF]->(c)
 RETURN c.id AS id, c.name AS name, c.unit AS unit, count(pre) AS prerequisites
 ORDER BY unit, name
+"""
+
+# Study notes for the topics in a plan: each concept's stored notes (hand-written
+# or saved earlier from Claude), plus its direct prerequisites and the topics it
+# directly unlocks, so notes can always say what it builds on and leads to.
+CONCEPT_NOTES = """
+UNWIND $ids AS cid
+MATCH (c:Concept {id: cid})
+OPTIONAL MATCH (pre:Concept)-[:PREREQUISITE_OF]->(c)
+WITH c, collect(pre.name) AS builds_on
+OPTIONAL MATCH (c)-[:PREREQUISITE_OF]->(nxt:Concept)
+RETURN c.id AS id, c.name AS name, c.summary AS summary, c.note_points AS points,
+       c.note_example AS example, c.note_trap AS trap, builds_on, collect(nxt.name) AS leads_to
+"""
+
+# Save study notes Claude wrote for a concept back onto the concept node, so they
+# are generated once and then served from the graph.
+SAVE_NOTES = """
+UNWIND $rows AS row
+MATCH (c:Concept {id: row.id})
+SET c.note_points = row.points, c.note_example = row.example, c.note_trap = row.trap, c.note_source = 'ai'
 """
 
 # Fetch one concept by id.

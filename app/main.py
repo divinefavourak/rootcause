@@ -99,12 +99,22 @@ def manifest():
 
 
 # Link previews (WhatsApp etc.) need an absolute og:image URL, so fill in the host we were reached on.
-@app.get("/", include_in_schema=False)
-def index(request: Request):
-    html = (STATIC / "index.html").read_text(encoding="utf-8")
+def _page(name: str, request: Request) -> HTMLResponse:
+    html = (STATIC / name).read_text(encoding="utf-8")
     base = str(request.base_url).rstrip("/")
     html = html.replace('content="/icons/og.png"', f'content="{base}/icons/og.png"')
     return HTMLResponse(html, headers={"Cache-Control": "no-cache"})
+
+
+@app.get("/", include_in_schema=False)
+def landing(request: Request):
+    return _page("landing.html", request)
+
+
+@app.get("/app", include_in_schema=False)
+@app.get("/app/", include_in_schema=False)
+def app_shell(request: Request):
+    return _page("index.html", request)
 
 
 @app.middleware("http")

@@ -4,6 +4,7 @@ Needs the app running (uvicorn app.main:app --port 8000) and a freshly seeded gr
 Run from the repo root:  python -m scripts.screenshots [--quick]
 --quick: only 360px light + dark (for fast design iterations).
 """
+import os
 import sys
 from pathlib import Path
 
@@ -11,7 +12,7 @@ from playwright.sync_api import sync_playwright
 
 from scripts import seed
 
-BASE = "http://127.0.0.1:8000"
+BASE = os.getenv("RC_BASE", "http://127.0.0.1:8001")
 OUT = Path(__file__).resolve().parent.parent / "screenshots"
 VIEWPORTS = [(360, 800), (390, 844), (768, 1024), (1280, 800)]
 LONG_NAME = "Arithmetic Logic Unit (ALU) with an extremely long descriptive concept name for overflow testing"
@@ -35,7 +36,10 @@ def run(viewports, themes):
                 ctx = browser.new_context(viewport={"width": w, "height": h}, color_scheme=theme,
                                           device_scale_factor=1, service_workers="block")
                 page = ctx.new_page()
-                page.goto(BASE)
+                page.goto(BASE + "/")
+                page.wait_for_timeout(400)
+                shoot(page, "00_landing", w, theme)
+                page.goto(BASE + "/app")
                 page.wait_for_timeout(1300)  # splash
                 shoot(page, "01_picker", w, theme)
                 page.click("[data-student=tobi]")
@@ -55,16 +59,17 @@ def run(viewports, themes):
                 page.wait_for_timeout(1600)
                 shoot(page, "04_diagnosis", w, theme)
 
-                page.click("[data-chainview=graph]")
-                shoot(page, "05_graph_view", w, theme)
-                page.click("[data-chainview=list]")
+                page.click("[data-action=openmap]")
+                page.wait_for_timeout(500)
+                shoot(page, "05_root_map", w, theme, full=False)
+                page.click("[data-action=closemap]")
 
-                page.goto(BASE + "/#plan")
+                page.goto(BASE + "/app#plan")
                 page.wait_for_timeout(500)
                 page.click("#planBody .tick")
                 shoot(page, "06_plan", w, theme)
 
-                page.goto(BASE + "/#home")
+                page.goto(BASE + "/app#home")
                 page.wait_for_selector("[data-action=quiz]")
                 page.click(".rc-actions [data-action=quiz]")
                 page.wait_for_selector(".opt", timeout=20000)
@@ -84,7 +89,7 @@ def run(viewports, themes):
                 page.wait_for_timeout(2400)
                 shoot(page, "11_after_quiz", w, theme)
 
-                page.goto(BASE + "/#progress")
+                page.goto(BASE + "/app#progress")
                 page.wait_for_selector(".crow", timeout=15000)
                 shoot(page, "12_progress", w, theme)
 
@@ -93,10 +98,10 @@ def run(viewports, themes):
                 shoot(page, "13_long_name", w, theme, full=False)
 
                 page.evaluate("localStorage.clear()")
-                page.goto(BASE + "/")
+                page.goto(BASE + "/app")
                 page.wait_for_timeout(1300)
                 page.click("[data-student=amaka]")
-                page.goto(BASE + "/#plan")
+                page.goto(BASE + "/app#plan")
                 page.wait_for_timeout(300)
                 shoot(page, "14_plan_empty", w, theme, full=False)
 

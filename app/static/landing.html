@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RootCause: the real reason a topic feels hard</title>
+<meta name="description" content="Stuck on a topic? RootCause traces it back through everything it builds on, finds your weakest foundation, and gives you a 3-day plan that starts there.">
+<meta name="theme-color" content="#FAF8F3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0F1512" media="(prefers-color-scheme: dark)">
+<meta property="og:title" content="RootCause: the real reason a topic feels hard">
+<meta property="og:description" content="Say the topic you're stuck on. RootCause traces it back to the weak foundation underneath and gives you a 3-day fix plan.">
+<meta property="og:image" content="/icons/og.png">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/landing.css">
+<script>try { var t = JSON.parse(localStorage.getItem("rc:theme")); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
+</head>
+<body class="landing">
+<a class="skip" href="#main">Skip to content</a>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-root" viewBox="0 0 24 24"><path d="M12 2v14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="5" r="2.4" fill="currentColor"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/><circle cx="12" cy="19.5" r="3.4" fill="#F5B700"/></symbol>
+    <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-warning" viewBox="0 0 24 24"><path d="M12 4l9 16H3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 10v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17" r="1.2" fill="currentColor"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-speaker" viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5v14l-4.5-4.5H4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-share" viewBox="0 0 24 24"><circle cx="18" cy="5.5" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="6" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="18" cy="18.5" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8.2 10.8l7.6-4.1M8.2 13.2l7.6 4.1" stroke="currentColor" stroke-width="2"/></symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24"><path d="M5 20V12M12 20V5M19 20v-5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></symbol>
+    <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7 18h10a4 4 0 0 0 .5-7.97A6 6 0 0 0 6 9.5 4.25 4.25 0 0 0 7 18z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M4 4l16 16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  </defs>
+</svg>
+
+<header class="l-bar">
+  <a class="brand" href="/" aria-label="RootCause home">
+    <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-root"/></svg>
+    <span>RootCause</span>
+  </a>
+  <a class="btn btn-primary l-bar-cta" href="/app">Open the app</a>
+</header>
+
+<main id="main">
+  <!-- HERO -->
+  <section class="l-hero" aria-labelledby="heroTitle">
+    <div class="l-hero-copy">
+      <p class="l-kicker"><span class="rc-sticker l-sticker">For IFT 211 Digital Logic</span></p>
+      <h1 id="heroTitle">Stuck on a topic? The problem is usually underneath it.</h1>
+      <p class="l-lead">RootCause walks back through everything a topic builds on, finds your weakest foundation, and gives you a 3-day plan that starts there.</p>
+      <div class="l-ctas">
+        <a class="btn btn-primary l-big" href="/app">Find my root cause</a>
+        <a class="btn btn-ghost l-big" href="#how">See how it works</a>
+      </div>
+      <p class="l-note">Free demo with two made-up students. No sign-up.</p>
+    </div>
+    <div class="l-hero-art" aria-hidden="true">
+      <div class="l-art" data-art></div>
+      <div class="l-float l-float-a">
+        <span class="gtag gtag-root"><svg><use href="#i-warning"/></svg>Root cause</span>
+        <span class="l-float-name">De Morgan's Theorems</span>
+        <span class="l-float-row"><b>35%</b><span class="badge" data-s="Weak"><svg><use href="#i-warning"/></svg>Weak</span></span>
+      </div>
+      <div class="l-float l-float-b">
+        <span class="l-float-small">You said</span>
+        <span class="l-float-quote">“I don't get flip flops”</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- PROOF STRIP -->
+  <section class="l-strip" aria-label="What's inside">
+    <p><b>56</b><span>topics in the course graph</span></p>
+    <p><b>83</b><span>prerequisite links</span></p>
+    <p><b>3</b><span>days to fix the root</span></p>
+    <p><b>0</b><span>audio recordings stored</span></p>
+  </section>
+
+  <!-- HOW IT WORKS (a real sequence, so it's numbered) -->
+  <section class="l-section" id="how" aria-labelledby="howTitle">
+    <h2 id="howTitle" class="l-h2">How it works</h2>
+    <ol class="l-steps">
+      <li class="card l-step">
+        <span class="l-step-n">1</span>
+        <h3>Say what's hard</h3>
+        <p>Type it or say it, the way you'd tell a friend. “k map”, “demorgan”, “the mux thing” all work.</p>
+        <div class="l-mini l-mini-ask"><span>I don't get flip flops</span><span class="l-mic"><svg aria-hidden="true"><use href="#i-mic"/></svg></span></div>
+      </li>
+      <li class="card l-step">
+        <span class="l-step-n">2</span>
+        <h3>We trace the roots</h3>
+        <p>RootCause walks back through the prerequisite graph and checks your scores at every step to find the weakest link.</p>
+        <ol class="l-mini l-mini-chain" aria-label="Example chain">
+          <li data-s="Weak">Flip-Flops <b>30%</b></li>
+          <li data-s="Weak">SR Latch <b>42%</b></li>
+          <li data-s="root">De Morgan's Theorems <b>35%</b></li>
+        </ol>
+      </li>
+      <li class="card l-step">
+        <span class="l-step-n">3</span>
+        <h3>Fix it in 3 days</h3>
+        <p>A plan that starts at the root, with notes for every topic. A 3-question check updates your memory and the plan moves on.</p>
+        <div class="l-mini l-mini-days"><span class="day-title">Day 1</span><span class="day-title l-d2">Day 2</span><span class="day-title l-d3">Day 3</span></div>
+      </li>
+    </ol>
+  </section>
+
+  <!-- WHY A GRAPH -->
+  <section class="l-section l-graph" aria-labelledby="graphTitle">
+    <div class="l-graph-copy">
+      <h2 id="graphTitle" class="l-h2">Why a graph, not a gradebook</h2>
+      <p>A list of scores tells you that you failed flip-flops. It can't tell you <em>why</em>. Flip-flops are built on latches, latches on NAND and NOR gates, and those only click once De Morgan's theorems do.</p>
+      <p>RootCause stores the course as a graph in FalkorDB: topics linked by what comes first, and each student linked to every topic they've struggled with or mastered. Finding the root cause is a walk back along those links. Every quiz rewrites the links, so the next answer changes too.</p>
+      <a class="btn btn-secondary" href="/app">Try it on flip-flops</a>
+    </div>
+    <div class="l-canvas" aria-hidden="true">
+      <div class="l-node">
+        <span class="gtag gtag-stuck">You're stuck here</span>
+        <span class="l-node-top"><i class="gsph" style="--a:#FFC9C2;--b:#E5484D"></i>Weak<b>30%</b></span>
+        <span class="l-node-name">Flip-Flops</span>
+      </div>
+      <span class="l-wire"></span>
+      <div class="l-node">
+        <span class="l-node-top"><i class="gsph" style="--a:#FFC9C2;--b:#E5484D"></i>Weak<b>42%</b></span>
+        <span class="l-node-name">SR Latch</span>
+      </div>
+      <span class="l-wire"></span>
+      <div class="l-node l-node-root">
+        <span class="gtag gtag-root"><svg><use href="#i-warning"/></svg>Root cause</span>
+        <span class="l-node-top"><i class="gsph" style="--a:#FFC9C2;--b:#E5484D"></i>Weak<b>35%</b></span>
+        <span class="l-node-name">De Morgan's Theorems</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section class="l-section" aria-labelledby="featTitle">
+    <h2 id="featTitle" class="l-h2">Made for how you actually study</h2>
+    <div class="l-feats">
+      <article class="card l-feat l-feat-wide">
+        <span class="l-icon"><svg aria-hidden="true"><use href="#i-mic"/></svg></span>
+        <h3>Talk to it</h3>
+        <p>Speak your topic or your quiz answers (“option B”, “the second one”). Tap Listen to hear any diagnosis, plan or question read out. Your voice never leaves your phone; only the final words do.</p>
+      </article>
+      <article class="card l-feat">
+        <span class="l-icon"><svg aria-hidden="true"><use href="#i-chart"/></svg></span>
+        <h3>It remembers</h3>
+        <p>Every quiz updates your memory graph, so tomorrow's diagnosis knows what you fixed today.</p>
+      </article>
+      <article class="card l-feat">
+        <span class="l-icon"><svg aria-hidden="true"><use href="#i-cloud"/></svg></span>
+        <h3>Works offline</h3>
+        <p>Install it like an app. Your last result stays saved when the data runs out.</p>
+      </article>
+      <article class="card l-feat">
+        <span class="l-icon"><svg aria-hidden="true"><use href="#i-share"/></svg></span>
+        <h3>Share the plan</h3>
+        <p>Send your diagnosis and 3-day plan to your study group on WhatsApp in one tap.</p>
+      </article>
+      <article class="card l-feat">
+        <span class="l-icon"><svg aria-hidden="true"><use href="#i-speaker"/></svg></span>
+        <h3>Explains, kindly</h3>
+        <p>A short, friendly reason why the root matters, plus notes, an example and the usual trap for every topic.</p>
+      </article>
+    </div>
+  </section>
+
+  <!-- FINAL CTA -->
+  <section class="l-final" aria-labelledby="finalTitle">
+    <h2 id="finalTitle">No wahala. Let's find the real problem.</h2>
+    <p>It takes about 30 seconds.</p>
+    <a class="btn btn-primary l-big" href="/app">Find my root cause</a>
+  </section>
+</main>
+
+<footer class="l-foot">
+  <p>RootCause, built for the WeMakeDevs Graph Hacks hackathon. Graph by FalkorDB. Built with Claude Code.</p>
+  <p>Demo data is made up. No real students, no recordings.</p>
+</footer>
+
+<script src="/art.js" defer></script>
+<script>
+  addEventListener("DOMContentLoaded", function () {
+    document.querySelectorAll("[data-art]").forEach(function (el) { el.innerHTML = RootArt.heroArt(); });
+  });
+</script>
+</body>
+</html>

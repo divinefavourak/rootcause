@@ -106,14 +106,40 @@ def _task_for(step: dict, stuck_id: str) -> tuple[str, int]:
     return f"Quick refresh: {step['summary']} Then 3 practice questions.", 25
 
 
+def study_notes(ids: list[str]) -> dict:
+    """Notes per concept: stored in the graph, else written once by Claude and saved, else built from the graph."""
+    rows = db.ro(Q.CONCEPT_NOTES, {"ids": ids})
+    missing = [r for r in rows if not r["points"]]
+    if missing:
+        written = llm.study_notes(missing)
+        if written:
+            known = {r["id"] for r in missing}
+            written = [w for w in written if w["id"] in known]
+            db.run(Q.SAVE_NOTES, {"rows": written})
+            rows = db.ro(Q.CONCEPT_NOTES, {"ids": ids})
+    notes = {}
+    for r in rows:
+        links = []
+        if r["builds_on"]:
+            links.append("Builds on " + ", ".join(sorted(r["builds_on"])) + ".")
+        if r["leads_to"]:
+            links.append("You need it for " + ", ".join(sorted(r["leads_to"])) + ".")
+        if r["points"]:
+            notes[r["id"]] = {"points": r["points"], "example": r["example"], "trap": r["trap"], "links": links}
+        else:
+            notes[r["id"]] = {"points": [r["summary"]] + links, "example": None, "trap": None, "links": []}
+    return notes
+
+
 def fix_plan(student_id: str, concept_id: str) -> list[dict]:
     rows = db.ro(Q.FIX_PLAN, {"student_id": student_id, "concept_id": concept_id})
+    notes = study_notes(list(dict.fromkeys(r["id"] for r in rows)))
     days = {1: [], 2: [], 3: []}
     for row in rows:
         task, minutes = _task_for(row, concept_id)
         days[row["day"]].append({
             "id": row["id"], "name": row["name"], "score": row["score"],
-            "status": row["status"], "task": task, "minutes": minutes,
+            "status": row["status"], "task": task, "minutes": minutes, "notes": notes.get(row["id"]),
         })
     stuck_name = rows[-1]["name"] if rows else concept_id
     # Fewer than 3 steps: fill empty days with review so the plan always spans 3 days.

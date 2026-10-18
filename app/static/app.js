@@ -18,7 +18,7 @@
     set(k, v) { try { localStorage.setItem("rc:" + k, JSON.stringify(v)); } catch { /* storage blocked: fine */ } },
   };
 
-  const state = { students: [], student: null, diagnosis: null, selected: null, quiz: null, qIndex: 0, answers: [], result: null, overview: null, chainView: matchMedia("(min-width: 900px)").matches ? "graph" : "list", filter: "All", lastChange: null };
+  const state = { students: [], student: null, diagnosis: null, selected: null, quiz: null, qIndex: 0, answers: [], result: null, overview: null, filter: "All", lastChange: null };
 
   // ------------------------------------------------------------------ api
   async function api(path, body) {
@@ -167,6 +167,7 @@
     const name = (location.hash.slice(1) || "home");
     const view = VIEWS.includes(name) ? name : "home";
     if (view !== "quiz") stopSpeaking();
+    closeMap();
     VIEWS.forEach((v) => { $("#view-" + v).hidden = v !== view; });
     $$(".bottomnav a").forEach((a) => {
       if (a.dataset.nav === view) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
@@ -369,6 +370,7 @@
         ${badge(r.status)}
       </div>
       <p class="rc-why">${esc(d.explanation || "")}</p>
+      <p class="rc-source">${d.explanation_source === "ai" ? "Explained by Claude from your graph results" : "Explained from your graph results"}</p>
       <div class="rc-actions">
         <button class="btn btn-primary" type="button" data-action="quiz">Test me on ${esc(r.name)}</button>
         ${speakerHTML("diagnosis")}
@@ -396,12 +398,11 @@
     return `<section class="card" aria-labelledby="chainTitle">
       <div class="section-head">
         <h2 class="section-title" id="chainTitle">How we traced it</h2>
-        <div class="view-toggle" role="group" aria-label="Chain view">
-          <button type="button" data-chainview="list" aria-pressed="${state.chainView === "list"}">List</button>
-          <button type="button" data-chainview="graph" aria-pressed="${state.chainView === "graph"}">Root map</button>
-        </div>
+        <button class="btn btn-secondary map-open" type="button" data-action="openmap" aria-haspopup="dialog">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span>Open root map</span>
+        </button>
       </div>
-      ${state.chainView === "graph" ? RootArt.mapHTML(d) : ""}
       <ol class="rootline${animate && !reduced() ? " drawing" : ""}" aria-label="From the topic you're stuck on down to its root cause">${items}</ol>
     </section>`;
   }
@@ -421,10 +422,22 @@
               <span class="task-name">${esc(it.name)}</span>
               <span class="task-text">${esc(it.task)}</span>
               <span class="task-meta">${badge(it.status)}<span class="time">${it.minutes} min</span></span>
+              ${notesHTML(it)}
             </div>
           </li>`;
         }).join("")}</ul>
       </section>`).join("")}</div>`;
+  }
+  function notesHTML(it) {
+    const n = it.notes;
+    if (!n || !n.points || !n.points.length) return "";
+    return `<details class="notes">
+      <summary>Study notes</summary>
+      <ul class="notes-points">${n.points.map((p) => `<li>${esc(p)}</li>`).join("")}</ul>
+      ${n.example ? `<p class="notes-ex"><b>Example</b>${esc(n.example)}</p>` : ""}
+      ${n.trap ? `<p class="notes-trap"><b>Watch out</b>${esc(n.trap)}</p>` : ""}
+      ${n.links && n.links.length ? `<p class="notes-links">${n.links.map(esc).join(" ")}</p>` : ""}
+    </details>`;
   }
   document.addEventListener("change", (e) => {
     const cb = e.target.closest(".tick input");
@@ -472,13 +485,57 @@
     box.classList.add("has-data");
     $("#homeMain").classList.add("has-results");
     if (animate) countUp($("#rcNumber"), d.root.score);
-    if (state.chainView === "graph") {
-      RootArt.initMap(d, {
-        badge, pct,
-        onQuiz: startQuiz,
-        onDiagnose: (id, name) => { $("#topic").value = name; diagnose(id, name); },
-      });
-    }
+  }
+
+  // ------------------------------------------------------------------ full-screen root map
+  let mapOpener = null;
+  function closeMap() {
+    const layer = $("#mapLayer");
+    if (!layer) return;
+    layer.remove();
+    document.body.classList.remove("map-open-body");
+    document.removeEventListener("keydown", mapKeys, true);
+    mapOpener?.focus();
+  }
+  function mapKeys(e) {
+    if (e.key === "Escape") { e.preventDefault(); closeMap(); return; }
+    if (e.key !== "Tab") return;
+    const layer = $("#mapLayer");
+    const f = $$("button, a[href]", layer).filter((x) => x.offsetParent !== null);
+    if (!f.length) return;
+    const first = f[0], last = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  }
+  function openMap(opener) {
+    const d = state.diagnosis;
+    if (!d) return;
+    stopSpeaking();
+    mapOpener = opener || null;
+    const layer = document.createElement("div");
+    layer.id = "mapLayer";
+    layer.className = "map-layer";
+    layer.setAttribute("role", "dialog");
+    layer.setAttribute("aria-modal", "true");
+    layer.setAttribute("aria-labelledby", "mapTitle");
+    layer.innerHTML = `
+      <div class="map-bar">
+        <div class="map-bar-title">
+          <svg class="brand-mark" aria-hidden="true"><use href="#i-root"/></svg>
+          <div><h2 id="mapTitle">Root map</h2><p>${esc(d.stuck.name)}, ${d.graph.nodes.length} topics underneath</p></div>
+        </div>
+        <button class="gpill map-close" type="button" data-action="closemap">Close</button>
+      </div>
+      ${RootArt.mapHTML(d)}`;
+    document.body.appendChild(layer);
+    document.body.classList.add("map-open-body");
+    document.addEventListener("keydown", mapKeys, true);
+    RootArt.initMap(d, {
+      pct,
+      onQuiz: () => { closeMap(); startQuiz(); },
+      onDiagnose: (id, name) => { closeMap(); $("#topic").value = name; diagnose(id, name); },
+    });
+    $(".map-close", layer).focus();
   }
 
   // ------------------------------------------------------------------ plan view
@@ -665,13 +722,6 @@
   document.addEventListener("click", (e) => {
     const sc = e.target.closest("[data-student]");
     if (sc) { chooseStudent(sc.dataset.student); $("#topic").focus(); return; }
-    const cv = e.target.closest("[data-chainview]");
-    if (cv) {
-      state.chainView = cv.dataset.chainview;
-      renderResults(state.diagnosis, { animate: false });
-      $(`[data-chainview="${state.chainView}"]`)?.focus();
-      return;
-    }
     const opt = e.target.closest("[data-opt]");
     if (opt && !opt.disabled) { state.answers[state.qIndex] = Number(opt.dataset.opt); renderQuestion(); $(`[data-opt="${opt.dataset.opt}"]`).focus(); return; }
     const conf = e.target.closest("[data-confirm]");
@@ -680,6 +730,8 @@
     if (!a) return;
     const act = a.dataset.action;
     if (act === "quiz") startQuiz();
+    if (act === "openmap") openMap(a);
+    if (act === "closemap") closeMap();
     if (act === "retry-diagnose" && lastAsk) diagnose(...lastAsk);
     if (act === "retry-progress") loadProgress();
     if (act === "retry-students") loadStudents();

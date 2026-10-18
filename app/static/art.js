@@ -185,9 +185,11 @@
         y0 = Math.min(...cs.map((n) => n.y)) - 40; y1 = Math.max(...cs.map((n) => n.y + CARD_H)) + 24;
       }
       const fitS = Math.min(CW / (x1 - x0), CH / (y1 - y0));
-      view.s = all ? Math.min(1, fitS) : Math.min(1, Math.max(0.88, fitS));
+      // Narrow phones may go down to 0.8 so the chain's width fits; text stays about 14px.
+      const floor = CW < 480 ? Math.max(0.8, Math.min(0.88, CW / (x1 - x0))) : 0.88;
+      view.s = all ? Math.min(1, fitS) : Math.min(1, Math.max(floor, fitS));
       // Default view: if the whole chain doesn't fit at a readable size, start at the stuck topic and let them pan down.
-      const cy = !all && fitS < 0.88 ? y0 + CH / view.s / 2 : (y0 + y1) / 2;
+      const cy = !all && fitS < floor ? y0 + CH / view.s / 2 : (y0 + y1) / 2;
       view.tx = CW / 2 - ((x0 + x1) / 2) * view.s;
       view.ty = CH / 2 - cy * view.s;
       apply();
@@ -330,7 +332,9 @@
       rt = setTimeout(() => { if (document.body.contains(stage)) frame(showAll); else removeEventListener("resize", onResize); }, 150);
     };
     addEventListener("resize", onResize);
-    select(d.root.id);
+    // Wide screens open with the root cause's details beside the map; phones keep the canvas clear.
+    if (matchMedia("(min-width: 900px)").matches) select(d.root.id);
+    else light(d.root.id);
   }
 
   window.RootArt = { heroArt, mapHTML, initMap };

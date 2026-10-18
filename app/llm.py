@@ -64,6 +64,48 @@ def explain_root_cause(stuck: str, root: str, score: int | None, chain: list[str
     return _ask(VOICE, prompt, max_tokens=1500)
 
 
+NOTES_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "notes": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {"type": "string"},
+                    "points": {"type": "array", "items": {"type": "string"}},
+                    "example": {"type": "string"},
+                    "trap": {"type": "string"},
+                },
+                "required": ["id", "points", "example", "trap"],
+                "additionalProperties": False,
+            },
+        }
+    },
+    "required": ["notes"],
+    "additionalProperties": False,
+}
+
+
+def study_notes(concepts: list[dict]) -> list[dict] | None:
+    """One call for every concept in a plan that has no notes yet."""
+    listing = "\n".join(f"- id={c['id']}: {c['name']} ({c['summary']})" for c in concepts)
+    prompt = (
+        "Write short revision notes for each IFT 211 Digital Logic topic below. For each: exactly 3 key "
+        "points (each under 110 characters), one worked example (under 120 characters), and one common "
+        "mistake students make (under 110 characters). Plain text, no markdown. Use the given ids.\n" + listing
+    )
+    text = _ask(VOICE, prompt, schema=NOTES_SCHEMA, max_tokens=4000)
+    if not text:
+        return None
+    try:
+        rows = json.loads(text)["notes"]
+        return [{"id": str(r["id"]), "points": [str(p) for p in r["points"]][:3],
+                 "example": str(r["example"]), "trap": str(r["trap"])} for r in rows if r.get("points")]
+    except (ValueError, KeyError, TypeError):
+        return None
+
+
 QUIZ_SCHEMA = {
     "type": "object",
     "properties": {

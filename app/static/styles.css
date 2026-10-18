@@ -385,6 +385,23 @@ main { max-width: 640px; margin: 0 auto; padding: var(--s4) var(--s4) 0; }
 .task-text { color: var(--muted); }
 .task-meta { display: flex; gap: var(--s2); align-items: center; flex-wrap: wrap; margin-top: var(--s1); }
 .time { font-size: var(--fs-small); font-weight: 650; font-variant-numeric: tabular-nums; color: var(--muted); }
+.notes { margin-top: var(--s2); border: 2px solid var(--ink); border-radius: var(--r-input); background: var(--surface-2); }
+.notes summary {
+  min-height: 44px; display: flex; align-items: center; gap: var(--s2); padding: 0 var(--s3); cursor: pointer;
+  font-weight: 800; list-style: none;
+}
+.notes summary::-webkit-details-marker { display: none; }
+.notes summary::before { content: "+"; width: 22px; height: 22px; display: grid; place-items: center; border-radius: 6px; background: var(--accent); color: var(--on-accent); border: 2px solid var(--ink); font-weight: 900; line-height: 1; }
+.notes[open] summary::before { content: "2"; }
+.notes[open] summary { border-bottom: 2px dashed var(--border); }
+.notes-points { margin: var(--s3) 0 0; padding: 0 var(--s4) 0 calc(var(--s4) + 18px); display: grid; gap: var(--s2); }
+.notes-ex, .notes-trap, .notes-links { margin: var(--s3) var(--s3) 0; padding: var(--s2) var(--s3); border-radius: 10px; }
+.notes-ex { background: var(--primary-soft); }
+.notes-trap { background: var(--weak-soft); }
+.notes-ex b, .notes-trap b { display: block; font-size: var(--fs-small); }
+.notes-links { color: var(--muted); padding: 0 var(--s1); }
+.notes > :last-child { margin-bottom: var(--s3); }
+.rc-source { font-size: var(--fs-small); color: var(--muted); font-weight: 650; margin-top: calc(-1 * var(--s2)); }
 .plan-teaser { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); flex-wrap: wrap; }
 
 /* ---------- progress ---------- */
@@ -614,7 +631,39 @@ main { max-width: 640px; margin: 0 auto; padding: var(--s4) var(--s4) 0; }
 .gpill.ghost { background: transparent; color: #141414; }
 .gpill:active { transform: scale(.97); }
 .gpill:focus-visible { outline: 3px solid #141414; outline-offset: 3px; }
-@media (min-width: 900px) { .gmap-stage { height: 660px; } }
+
+
+/* ---------- full-screen map layer ---------- */
+body.map-open-body { overflow: hidden; }
+.map-open { padding-inline: var(--s4); }
+.map-layer {
+  position: fixed; inset: 0; z-index: 60; display: grid; grid-template-rows: auto 1fr;
+  background: #0B0B0B; color: #F2F0EA; animation: fadeIn .18s var(--ease);
+}
+.map-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--s3);
+  padding: var(--s3) var(--s4); padding-top: max(var(--s3), env(safe-area-inset-top)); border-bottom: 1px solid #2A2A2A;
+}
+.map-bar-title { display: flex; align-items: center; gap: var(--s3); min-width: 0; }
+.map-bar-title .brand-mark { width: 30px; height: 30px; color: #4CE38A; }
+.map-bar h2 { font-size: var(--fs-lead); font-weight: 900; }
+.map-bar p { font-size: var(--fs-small); color: #BDBDBD; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.map-close { background: #F2F0EA; color: #141414; border-color: #F2F0EA; }
+.map-close:focus-visible { outline: 3px solid var(--accent); }
+.map-layer .gmap { position: relative; margin: 0; min-height: 0; gap: 0; }
+.map-layer .gmap-stage { height: 100%; border: 0; border-radius: 0; }
+.map-layer .gmap-detail {
+  position: absolute; left: var(--s3); right: var(--s3); bottom: calc(var(--s3) + env(safe-area-inset-bottom));
+  max-height: 46%; overflow: auto; border-radius: 24px;
+}
+.map-layer .gmap-detail:empty { display: none; }
+.map-layer .gdetail { box-shadow: 0 18px 40px rgba(0, 0, 0, .5); border-color: #141414; }
+.map-layer .gtools { bottom: auto; top: var(--s3); }
+.map-layer .ghint { bottom: auto; top: var(--s3); }
+@media (min-width: 900px) {
+  .map-layer .gmap-detail { left: auto; top: var(--s4); bottom: auto; width: 380px; max-height: calc(100% - 32px); }
+  .map-layer .ghint { top: auto; bottom: var(--s3); }
+}
 
 /* ---------- larger screens ---------- */
 @media (min-width: 900px) {

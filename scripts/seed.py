@@ -3,6 +3,7 @@
 Run from the repo root:  python -m scripts.seed
 """
 from app import db, queries as Q
+from app.notes_data import NOTES
 from app.seed_data import CONCEPTS, COURSE, PREREQUISITES, STUDENTS
 
 
@@ -18,10 +19,11 @@ def main() -> None:
     db.run(Q.CREATE_STUDENT_ID_INDEX)
     db.run(Q.CREATE_CONCEPT_FULLTEXT_INDEX)
 
-    concepts = [
-        {"id": cid, "name": name, "unit": unit, "aliases": aliases, "summary": summary}
-        for cid, name, unit, aliases, summary in CONCEPTS
-    ]
+    concepts = []
+    for cid, name, unit, aliases, summary in CONCEPTS:
+        points, example, trap = NOTES.get(cid, (None, None, None))
+        concepts.append({"id": cid, "name": name, "unit": unit, "aliases": aliases, "summary": summary,
+                         "note_points": points, "note_example": example, "note_trap": trap})
     db.run(Q.CREATE_CONCEPTS, {"code": COURSE["code"], "concepts": concepts})
     db.run(Q.CREATE_PREREQUISITES, {"edges": [list(e) for e in PREREQUISITES]})
     db.run(Q.CREATE_STUDENTS, {"students": [

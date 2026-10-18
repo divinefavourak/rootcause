@@ -1,6 +1,6 @@
 /* RootCause service worker: app shell + last diagnosis available offline. */
-const VERSION = "rc-v4";
-const SHELL = ["/", "/styles.css", "/app.js", "/art.js", "/manifest.webmanifest", "/icons/icon.svg", "/icons/icon-192.png"];
+const VERSION = "rc-v5";
+const SHELL = ["/", "/app", "/styles.css", "/landing.css", "/app.js", "/art.js", "/manifest.webmanifest", "/icons/icon.svg", "/icons/icon-192.png"];
 const LAST_DIAGNOSIS = "/__last-diagnosis";
 
 self.addEventListener("install", (e) => {
@@ -44,7 +44,7 @@ self.addEventListener("fetch", (e) => {
 
   // Pages: network first so deploys show up, shell when offline.
   if (req.mode === "navigate") {
-    e.respondWith(fetch(req).catch(() => caches.match("/")));
+    e.respondWith(fetch(req).catch(() => caches.match(url.pathname.startsWith("/app") ? "/app" : "/")));
     return;
   }
 
