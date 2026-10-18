@@ -60,7 +60,7 @@ Every Cypher statement lives in one file with a plain-English comment above it.
 | `FIX_PLAN` | Every weak ancestor, deepest first (longest path back), weakest first within a depth, with the stuck topic last, split into Day 1/2/3 by position. |
 | `STUDENT_OVERVIEW` | Every concept with Weak (<50) / Okay (50–69) / Strong (70+) / Not tried, plus how many later topics it unlocks (downstream traversal). |
 | `RESOLVE_CONCEPT` | FalkorDB full-text index (RediSearch, English stemming) over name and aliases, with fuzzy and prefix terms. Exact or whole-phrase alias matches rank first; confidence decides between auto-select and "Did you mean...?" chips. |
-| `CONCEPT_NOTES` / `SAVE_NOTES` | Study notes for every topic in a plan, read off the Concept node with what it builds on and leads to. Notes Claude writes are saved back onto the node, so each is generated once and then served from the graph. |
+| `CONCEPT_NOTES` / `SAVE_NOTES` | Study notes for every topic in a plan, read off the Concept node with what it builds on and leads to. Notes the AI writes are saved back onto the node, so each is generated once and then served from the graph. |
 | `QUIZ_FACTS` | When there is no LLM and no hand-written question bank, builds a quiz from the graph itself: "Which topic should you learn before X?" (answer: a real prerequisite; distractors: things that come *after* X). |
 | `ROOT_SYSTEM_NODES` / `ROOT_SYSTEM_EDGES` | Everything upstream of the stuck topic (its whole "root system") with hop distance and how many topics each unlocks, plus the edges between them. Feeds the interactive Root map. |
 
@@ -194,7 +194,7 @@ visible amber focus ring, `aria-live` for loading, results and voice state, full
 This project was built with **Claude Code** (Anthropic's agentic coding tool) as a pair programmer:
 it wrote most of the code, the seed data, the Cypher queries and this README under my direction, ran
 the query tests and the screenshot/Lighthouse QA loop, and I reviewed and steered the design and
-product decisions. The app can also call the Claude API at runtime for explanations and quiz
+product decisions. The app can also call an AI model (through OpenRouter) at runtime for explanations and quiz
 questions (optional, see above).
 
 ## Data and privacy
