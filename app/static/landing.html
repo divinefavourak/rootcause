@@ -57,7 +57,7 @@
       <p class="l-note">Free demo with two made-up students. No sign-up.</p>
     </div>
     <div class="l-hero-art" aria-hidden="true">
-      <div class="l-art" data-art></div>
+      <div class="l-art" data-art data-3d></div>
       <div class="l-float l-float-a">
         <span class="gtag gtag-root"><svg><use href="#i-warning"/></svg>Root cause</span>
         <span class="l-float-name">De Morgan's Theorems</span>
@@ -112,7 +112,7 @@
     <div class="l-graph-copy">
       <h2 id="graphTitle" class="l-h2">Why a graph, not a gradebook</h2>
       <p>A list of scores tells you that you failed flip-flops. It can't tell you <em>why</em>. Flip-flops are built on latches, latches on NAND and NOR gates, and those only click once De Morgan's theorems do.</p>
-      <p>RootCause stores the course as a graph in FalkorDB: topics linked by what comes first, and each student linked to every topic they've struggled with or mastered. Finding the root cause is a walk back along those links. Every quiz rewrites the links, so the next answer changes too.</p>
+      <p>RootCause maps the whole course as a web of topics linked by what comes first, and links you to every topic you've struggled with or mastered. Finding the root cause is a walk back along those links. Every quiz rewrites your links, so the next answer changes too.</p>
       <a class="btn btn-secondary" href="/app">Try it on flip-flops</a>
     </div>
     <div class="l-canvas" aria-hidden="true">
@@ -176,7 +176,7 @@
 </main>
 
 <footer class="l-foot">
-  <p>RootCause, built for the WeMakeDevs Graph Hacks hackathon. Graph by FalkorDB. Built with Claude Code.</p>
+  <p>RootCause. Find the root, fix the topic.</p>
   <p>Demo data is made up. No real students, no recordings.</p>
 </footer>
 
@@ -184,6 +184,15 @@
 <script>
   addEventListener("DOMContentLoaded", function () {
     document.querySelectorAll("[data-art]").forEach(function (el) { el.innerHTML = RootArt.heroArt(); });
+  });
+  // The 3D scene loads after the page has painted; the SVG above stays if WebGL is missing.
+  addEventListener("load", function () {
+    var go = function () {
+      import("/scene3d.js").then(function (m) {
+        document.querySelectorAll("[data-3d]").forEach(function (el) { m.mount(el); });
+      }).catch(function () {});
+    };
+    setTimeout(function () { "requestIdleCallback" in window ? requestIdleCallback(go, { timeout: 2000 }) : go(); }, 1200);
   });
 </script>
 </body>

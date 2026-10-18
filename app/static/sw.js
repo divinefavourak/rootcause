@@ -1,6 +1,6 @@
 /* RootCause service worker: app shell + last diagnosis available offline. */
-const VERSION = "rc-v5";
-const SHELL = ["/", "/app", "/styles.css", "/landing.css", "/app.js", "/art.js", "/manifest.webmanifest", "/icons/icon.svg", "/icons/icon-192.png"];
+const VERSION = "rc-v6";
+const SHELL = ["/", "/app", "/styles.css", "/landing.css", "/app.js", "/art.js", "/scene3d.js", "/vendor/three.module.min.js", "/manifest.webmanifest", "/icons/icon.svg", "/icons/icon-192.png"];
 const LAST_DIAGNOSIS = "/__last-diagnosis";
 
 self.addEventListener("install", (e) => {

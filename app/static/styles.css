@@ -534,6 +534,11 @@ main { max-width: 640px; margin: 0 auto; padding: var(--s4) var(--s4) 0; }
 @keyframes isoPulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.25); opacity: .35; } }
 @keyframes isoGlow { 0%, 100% { opacity: .8; } 50% { opacity: .3; } }
 
+[data-3d] { position: relative; }
+[data-3d] > canvas { position: absolute; inset: -14% -18%; width: 136%; height: 128%; display: block; opacity: 0; transition: opacity .5s ease; touch-action: pan-y; }
+[data-3d].has-3d > canvas { opacity: 1; }
+[data-3d].has-3d svg.iso { visibility: hidden; }
+
 /* ---------- interactive root map (node-editor style, always on a dark canvas) ---------- */
 .gmap { display: grid; gap: var(--s4); margin-bottom: var(--s5); }
 .gmap-stage {
@@ -584,7 +589,7 @@ main { max-width: 640px; margin: 0 auto; padding: var(--s4) var(--s4) 0; }
   padding: 3px 10px; border-radius: 999px; font-size: 14px; font-weight: 800; white-space: nowrap;
 }
 .gtag svg { width: 15px; height: 15px; }
-.gtag-root { background: #E5484D; color: #FFFFFF; }
+.gtag-root { background: #C62A2F; color: #FFFFFF; }
 .gtag-stuck { background: #141414; color: #FFFFFF; border: 2px solid #FFFFFF; left: auto; right: 14px; }
 
 .gmap-stage.focusing .gcard:not(.lit) { opacity: .35; }

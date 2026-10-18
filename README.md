@@ -57,6 +57,7 @@ Every Cypher statement lives in one file with a plain-English comment above it.
 | `FIX_PLAN` | Every weak ancestor, deepest first (longest path back), weakest first within a depth, with the stuck topic last, split into Day 1/2/3 by position. |
 | `STUDENT_OVERVIEW` | Every concept with Weak (<50) / Okay (50–69) / Strong (70+) / Not tried, plus how many later topics it unlocks (downstream traversal). |
 | `RESOLVE_CONCEPT` | FalkorDB full-text index (RediSearch, English stemming) over name and aliases, with fuzzy and prefix terms. Exact or whole-phrase alias matches rank first; confidence decides between auto-select and "Did you mean...?" chips. |
+| `CONCEPT_NOTES` / `SAVE_NOTES` | Study notes for every topic in a plan, read off the Concept node with what it builds on and leads to. Notes Claude writes are saved back onto the node, so each is generated once and then served from the graph. |
 | `QUIZ_FACTS` | When there is no LLM and no hand-written question bank, builds a quiz from the graph itself: "Which topic should you learn before X?" (answer: a real prerequisite; distractors: things that come *after* X). |
 | `ROOT_SYSTEM_NODES` / `ROOT_SYSTEM_EDGES` | Everything upstream of the stuck topic (its whole "root system") with hop distance and how many topics each unlocks, plus the edges between them. Feeds the interactive Root map. |
 
@@ -81,6 +82,9 @@ python -m scripts.test_queries     # seeds rootcause_test, prints every result, 
 ## Stack
 
 - **FalkorDB** (graph DB, full-text index) via Docker, Python client `falkordb`
+- **three.js 0.170** (vendored in `app/static/vendor/`, MIT) for the 3D hero scene. It loads lazily after
+  the page is usable and falls back to an inline SVG without WebGL. It is the one heavy asset
+  (~170 KB gzipped); everything else on a page is ~30 KB.
 - **FastAPI** backend, plain **HTML/CSS/vanilla JS** frontend served by FastAPI. No framework, no CDN,
   no web fonts, about 30 KB gzipped for the whole page.
 - **Claude** (Anthropic API, optional) only for a friendly one-line explanation and for writing 3 quiz
@@ -91,7 +95,9 @@ python -m scripts.test_queries     # seeds rootcause_test, prints every result, 
   Typing always works; speech never auto-submits.
 - **PWA**: manifest, maskable icons, service worker caching the shell and the last diagnosis.
 
-Lighthouse (mobile, local): Performance 99, Accessibility 100, Best Practices 100, SEO 100.
+Lighthouse (mobile, local): Accessibility 100, Best Practices 100, SEO 100 on both pages. Performance is
+76 (landing) / 73 (app) with the 3D scene and 99 without it: the gap is three.js parse and shader compile
+on Lighthouse's throttled, GPU-less CPU.
 
 ## API
 
@@ -114,7 +120,7 @@ Needs Docker and Python 3.11+.
 docker compose up -d                 # FalkorDB on :6379 (browser UI on :3000)
 pip install -r requirements.txt
 python -m scripts.seed               # loads IFT 211 + 2 demo students
-uvicorn app.main:app --reload        # http://localhost:8000
+uvicorn app.main:app --reload        # landing: http://localhost:8000  app: http://localhost:8000/app
 ```
 
 Optional: `cp .env.example .env` and set `ANTHROPIC_API_KEY` (and `ANTHROPIC_MODEL`, default
@@ -153,6 +159,20 @@ are hand-drawn inline SVG (an isometric stack of "knowledge layers" with a sprou
 layer, shaded spheres for every node), so there are no image downloads and they follow the theme.
 The **Root map** is a hand-rolled SVG graph (no library): layered by hop distance, pan / pinch / zoom,
 path highlighting, sap animation along the diagnosed chain, labels that stay 14px at any zoom.
+
+## How the AI explanation works
+
+The graph does the diagnosis; Claude only puts it into words.
+
+1. `ROOT_CAUSE` and `ROOT_CHAIN` (pure Cypher) pick the root cause, its score and the chain.
+2. `app/llm.py` sends those facts, and nothing else, to Claude with a short persona prompt
+   ("a warm, calm older student", at most 2 sentences, under 45 words). No student name or history is sent.
+3. The reply is cached per (stuck topic, root, score), so a repeat diagnosis costs nothing.
+4. Any failure (no key, timeout, refusal) falls back to a template built from the same facts. The UI says
+   which one you're seeing ("Explained by Claude from your graph results" vs "Explained from your graph results").
+
+The same pattern drives quiz questions (hand-written bank, then graph-built questions as fallbacks) and study
+notes (hand-written, then Claude-written and saved to the graph, then graph-built).
 
 ## Accessibility
 

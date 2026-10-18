@@ -775,6 +775,11 @@
     const splash = $("#splash");
     setTimeout(() => { splash.classList.add("done"); setTimeout(() => splash.remove(), 400); }, reduced() ? 0 : 750);
     if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
+    // Real 3D for the hero art, loaded once the app is usable; the SVG stays if WebGL is missing.
+    const load3d = () => import("/scene3d.js").then((m) => {
+      $$("[data-3d]").forEach((el) => { if (!el.classList.contains("has-3d")) m.mount(el, { compact: true }); });
+    }).catch(() => {});
+    setTimeout(() => { "requestIdleCallback" in window ? requestIdleCallback(load3d, { timeout: 2500 }) : load3d(); }, 1800);
   }
   boot();
 })();
