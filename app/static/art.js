@@ -52,41 +52,44 @@
     </svg>`;
   }
 
-  // ------------------------------------------------------------ root-system map
+  // ------------------------------------------------------------ root-system map (node-editor style)
+  // Cards are real <button>s placed in a pannable, zoomable "world"; connectors are an SVG layer underneath.
   const SPH = {
     Weak: ["#FFC9C2", "#E5484D"], Okay: ["#FFE3A6", "#F59E0B"], Strong: ["#B9F2D2", "#12A15E"],
-    "Not tried": ["#FFFFFF", "#BDB7AA"], root: ["#FFF1B8", "#F5B700"],
+    "Not tried": ["#FFFFFF", "#BDB7AA"],
   };
-  const GLYPH = { Weak: "warning", Okay: "half", Strong: "check", "Not tried": "dash" };
+  const STATUS_GLYPH = { Weak: "warning", Okay: "half", Strong: "check", "Not tried": "dash" };
+  const CARD_W = 208, CARD_H = 104, GX = 240, GY = 142, PAD = 40;
 
   function mapHTML(d) {
     return `<div class="gmap" id="gmap">
-      <div class="gmap-stage">
-        <svg class="gmap-svg" tabindex="-1" role="group" aria-label="Root system of ${esc(d.stuck.name)}: ${d.graph.nodes.length} topics. Drag to move, use the buttons to zoom, choose a topic for details."></svg>
-        <div class="gmap-tools" role="toolbar" aria-label="Map controls">
-          <button type="button" class="gmap-btn" data-gz="in" aria-label="Zoom in">+</button>
-          <button type="button" class="gmap-btn" data-gz="out" aria-label="Zoom out">&minus;</button>
-          <button type="button" class="gmap-btn wide" data-gz="fit" aria-label="Toggle between the chain and the whole root system">All</button>
+      <div class="gmap-stage" role="group" aria-label="Root map of ${esc(d.stuck.name)}: ${d.graph.nodes.length} topics. Drag to move around, use the zoom buttons, choose a card for details.">
+        <div class="gworld">
+          <svg class="gedges" aria-hidden="true"></svg>
+          <div class="gcards"></div>
         </div>
+        <div class="gtools" role="toolbar" aria-label="Map controls">
+          <button type="button" data-gz="in" aria-label="Zoom in"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 6v12M6 12h12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg></button>
+          <button type="button" data-gz="out" aria-label="Zoom out"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 12h12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg></button>
+          <button type="button" data-gz="fit" aria-label="Show the whole root system" aria-pressed="false"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        </div>
+        <p class="ghint" aria-hidden="true">Drag to explore</p>
       </div>
-      <ul class="gmap-legend" aria-hidden="true">
-          <li><i style="--a:${SPH.Weak[0]};--b:${SPH.Weak[1]}"></i>Weak</li>
-          <li><i style="--a:${SPH.Okay[0]};--b:${SPH.Okay[1]}"></i>Okay</li>
-          <li><i style="--a:${SPH.Strong[0]};--b:${SPH.Strong[1]}"></i>Strong</li>
-          <li><i style="--a:${SPH["Not tried"][0]};--b:${SPH["Not tried"][1]}"></i>Not tried</li>
-      </ul>
       <div class="gmap-detail" aria-live="polite"></div>
     </div>`;
   }
 
-  function initMap(d, { onDiagnose, onQuiz, badge, pct }) {
+  function initMap(d, { onDiagnose, onQuiz, pct }) {
     const wrap = document.getElementById("gmap");
     if (!wrap) return;
-    const svg = wrap.querySelector(".gmap-svg");
+    const stage = wrap.querySelector(".gmap-stage");
+    const world = wrap.querySelector(".gworld");
+    const edgeSvg = wrap.querySelector(".gedges");
+    const cardsBox = wrap.querySelector(".gcards");
     const detail = wrap.querySelector(".gmap-detail");
     const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-    // ---- layout: one row per hop distance from the stuck topic, roots fan out below
+    // ---- layout: one row per hop distance from the stuck topic; prerequisites fan out below
     const nodes = d.graph.nodes.map((n) => ({ ...n }));
     const byId = Object.fromEntries(nodes.map((n) => [n.id, n]));
     const out = {}, inc = {};
@@ -95,201 +98,224 @@
     edges.forEach((e) => { out[e.source].push(e.target); inc[e.target].push(e.source); });
     const rows = [];
     nodes.forEach((n) => (rows[n.hops] = rows[n.hops] || []).push(n));
-    const GX = 124, GY = 94, PAD = 56;
     const widest = Math.max(...rows.map((r) => (r ? r.length : 0)));
-    const VW = Math.max(380, (widest - 1) * GX + PAD * 2);
+    const VW = Math.max(CARD_W + PAD * 2, (widest - 1) * GX + CARD_W + PAD * 2);
     rows.forEach((r, i) => {
       if (!r) return;
       if (i > 0) {
         r.forEach((n) => {
-          const xs = out[n.id].map((t) => byId[t].x).filter((x) => x !== undefined);
+          const xs = out[n.id].map((t) => byId[t].cx).filter((x) => x !== undefined);
           n.bx = xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : VW / 2;
         });
         r.sort((a, b) => a.bx - b.bx);
       }
       const span = (r.length - 1) * GX;
-      r.forEach((n, j) => { n.x = VW / 2 - span / 2 + j * GX; n.y = PAD + i * GY + (r.length > 2 && j % 2 ? 18 : 0); });
+      r.forEach((n, j) => {
+        n.cx = VW / 2 - span / 2 + j * GX;
+        n.x = n.cx - CARD_W / 2;
+        n.y = PAD + 18 + i * GY;
+      });
     });
-    const VH = PAD * 2 + (rows.length - 1) * GY + 18;
+    const VH = PAD * 2 + 18 + (rows.length - 1) * GY + CARD_H;
+    world.style.width = VW + "px";
+    world.style.height = VH + "px";
+    edgeSvg.setAttribute("width", VW);
+    edgeSvg.setAttribute("height", VH);
+    edgeSvg.setAttribute("viewBox", `0 0 ${VW} ${VH}`);
 
     const chainIds = new Set(d.chain.map((c) => c.id));
     const chainPairs = new Set(d.chain.slice(0, -1).map((c, i) => d.chain[i + 1].id + ">" + c.id));
-    const radius = (n) => (n.id === d.root.id ? 24 : n.id === d.stuck.id ? 21 : 15);
-    const curve = (a, b) => `M${a.x} ${a.y} C ${a.x} ${(a.y + b.y) / 2}, ${b.x} ${(a.y + b.y) / 2}, ${b.x} ${b.y}`;
-    const short = (s) => (s.length > 16 ? s.slice(0, 15) + "…" : s);
 
-    const grads = Object.entries(SPH).map(([k, [a, b]]) =>
-      `<radialGradient id="gs-${k.replace(/\s/g, "")}" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></radialGradient>`).join("");
-
-    const edgeSvg = edges.map((e) => {
+    // ---- connectors: from the bottom port of the later topic down to the top port of its prerequisite,
+    // with right-angle turns and rounded corners.
+    function elbow(from, to) {
+      const x1 = from.cx, y1 = from.y + CARD_H, x2 = to.cx, y2 = to.y;
+      const midY = y1 + (y2 - y1) / 2;
+      if (Math.abs(x1 - x2) < 1) return `M${x1} ${y1} V${y2}`;
+      const r = Math.min(16, Math.abs(x2 - x1) / 2, (y2 - y1) / 4);
+      const dir = x2 > x1 ? 1 : -1;
+      return `M${x1} ${y1} V${midY - r} Q${x1} ${midY} ${x1 + dir * r} ${midY} H${x2 - dir * r} Q${x2} ${midY} ${x2} ${midY + r} V${y2}`;
+    }
+    edgeSvg.innerHTML = edges.map((e) => {
       const on = chainPairs.has(e.source + ">" + e.target);
-      return `<path class="ge${on ? " chain" : ""}" data-s="${esc(e.source)}" data-t="${esc(e.target)}" d="${curve(byId[e.source], byId[e.target])}"/>`;
-    }).join("");
-    const flowSvg = edges.filter((e) => chainPairs.has(e.source + ">" + e.target))
-      .map((e) => `<path class="gflow" d="${curve(byId[e.source], byId[e.target])}"/>`).join("");
-
-    const nodeSvg = nodes.map((n) => {
-      const r = radius(n), isRoot = n.id === d.root.id, isStuck = n.id === d.stuck.id;
-      const grad = isRoot ? "root" : n.status.replace(/\s/g, "");
-      const cls = ["gn", isRoot ? "root" : "", isStuck ? "stuck" : "", chainIds.has(n.id) ? "on-chain" : ""].join(" ");
-      const label = `${n.name}. ${n.status}${n.score !== null && n.score !== undefined ? ", " + n.score + "%" : ""}.${isRoot ? " Root cause." : ""}${isStuck ? " Where you're stuck." : ""}`;
-      return `<g class="${cls}" data-id="${esc(n.id)}" transform="translate(${n.x} ${n.y})" tabindex="0" role="button" aria-label="${esc(label)}">
-        ${isRoot ? `<circle class="gn-halo" r="${r + 12}"/>` : ""}
-        <circle class="gn-shadow" r="${r}" cx="3" cy="4"/>
-        <circle class="gn-ball" r="${r}" fill="url(#gs-${grad})"/>
-        <ellipse class="gn-shine" cx="${-r * 0.36}" cy="${-r * 0.42}" rx="${r * 0.34}" ry="${r * 0.2}"/>
-        <use href="#i-${isRoot ? "root" : GLYPH[n.status] || "dash"}" x="${-r * 0.55}" y="${-r * 0.55}" width="${r * 1.1}" height="${r * 1.1}" class="gn-glyph"/>
-        <text class="gn-label" y="${r + 22}">${esc(short(n.name))}</text>
+      const lower = byId[e.source], upper = byId[e.target];
+      const path = elbow(upper, lower);
+      return `<g class="gedge${on ? " chain" : ""}" data-s="${esc(e.source)}" data-t="${esc(e.target)}">
+        <path class="gline" d="${path}"/>
+        ${on && !reduce ? `<path class="gflow" d="${path}"/>` : ""}
+        <circle class="gport" cx="${upper.cx}" cy="${upper.y + CARD_H}" r="4.5"/>
+        <circle class="gport" cx="${lower.cx}" cy="${lower.y}" r="4.5"/>
       </g>`;
     }).join("");
 
-    svg.innerHTML = `<defs>${grads}</defs><g class="gvp">${edgeSvg}${reduce ? "" : flowSvg}${nodeSvg}</g>`;
-    const vp = svg.querySelector(".gvp");
+    // ---- cards
+    cardsBox.innerHTML = nodes.map((n) => {
+      const isRoot = n.id === d.root.id, isStuck = n.id === d.stuck.id;
+      const kind = isRoot ? "root" : isStuck ? "stuck" : chainIds.has(n.id) ? "chain" : "off";
+      const [a, b] = SPH[n.status] || SPH["Not tried"];
+      const tag = isRoot ? `<span class="gtag gtag-root"><svg aria-hidden="true"><use href="#i-warning"/></svg>Root cause</span>`
+        : isStuck ? `<span class="gtag gtag-stuck">You're stuck here</span>` : "";
+      const label = `${n.name}. ${n.status}${n.score !== null && n.score !== undefined ? ", " + n.score + "%" : ""}.${isRoot ? " Root cause." : ""}${isStuck ? " Where you're stuck." : ""}`;
+      return `<button type="button" class="gcard ${kind}" data-id="${esc(n.id)}" style="left:${n.x}px;top:${n.y}px" aria-label="${esc(label)}">
+        ${tag}
+        <span class="gcard-top">
+          <span class="gsph" style="--a:${a};--b:${b}"><svg aria-hidden="true"><use href="#i-${STATUS_GLYPH[n.status] || "dash"}"/></svg></span>
+          <span class="gstatus">${esc(n.status)}</span>
+          ${n.score === null || n.score === undefined ? "" : `<span class="gscore">${n.score}%</span>`}
+        </span>
+        <span class="gname">${esc(n.name)}</span>
+      </button>`;
+    }).join("");
 
-    // ---- view transform: user units == screen pixels, so 14/scale keeps labels 14px on screen
-    let CW = 0, CH = 0;
+    // ---- view: translate + scale on the world; text never drops below ~14px in the default view
     const view = { s: 1, tx: 0, ty: 0 };
+    let CW = 0, CH = 0, showAll = false;
     function apply() {
-      view.s = Math.min(2.5, Math.max(0.35, view.s));
-      vp.setAttribute("transform", `translate(${view.tx} ${view.ty}) scale(${view.s})`);
-      svg.style.setProperty("--lab", 14 / view.s + "px");
-      svg.classList.toggle("far", view.s < 0.85);
+      view.s = Math.min(1.6, Math.max(0.3, view.s));
+      world.style.transform = `translate(${view.tx}px, ${view.ty}px) scale(${view.s})`;
+      stage.classList.toggle("far", view.s < 0.62);
     }
-    // whole=false frames the diagnosis chain at a readable size; whole=true shows the full root system.
-    function fit(whole = false) {
-      CW = svg.clientWidth || 340;
-      CH = Math.round(Math.min(560, Math.max(430, CW * 1.1)));
-      svg.setAttribute("viewBox", `0 0 ${CW} ${CH}`);
-      svg.style.height = CH + "px";
+    function frame(all) {
+      CW = stage.clientWidth || 340;
+      CH = stage.clientHeight || 460;
       let x0 = 0, y0 = 0, x1 = VW, y1 = VH;
-      if (!whole) {
+      if (!all) {
         const cs = nodes.filter((n) => chainIds.has(n.id));
-        x0 = Math.min(...cs.map((n) => n.x)) - 90; x1 = Math.max(...cs.map((n) => n.x)) + 90;
-        y0 = Math.min(...cs.map((n) => n.y)) - 50; y1 = Math.max(...cs.map((n) => n.y)) + 70;
+        x0 = Math.min(...cs.map((n) => n.x)) - 24; x1 = Math.max(...cs.map((n) => n.x + CARD_W)) + 24;
+        y0 = Math.min(...cs.map((n) => n.y)) - 40; y1 = Math.max(...cs.map((n) => n.y + CARD_H)) + 24;
       }
-      view.s = Math.min(whole ? 1.15 : 1.2, CW / (x1 - x0), CH / (y1 - y0));
+      const fitS = Math.min(CW / (x1 - x0), CH / (y1 - y0));
+      view.s = all ? Math.min(1, fitS) : Math.min(1, Math.max(0.88, fitS));
+      // Default view: if the whole chain doesn't fit at a readable size, start at the stuck topic and let them pan down.
+      const cy = !all && fitS < 0.88 ? y0 + CH / view.s / 2 : (y0 + y1) / 2;
       view.tx = CW / 2 - ((x0 + x1) / 2) * view.s;
-      view.ty = CH / 2 - ((y0 + y1) / 2) * view.s;
+      view.ty = CH / 2 - cy * view.s;
       apply();
     }
     function zoomAt(f, cx = CW / 2, cy = CH / 2) {
-      const ns = Math.min(2.5, Math.max(0.35, view.s * f));
-      const k = ns / view.s;
+      const ns = Math.min(1.6, Math.max(0.3, view.s * f)), k = ns / view.s;
       view.tx = cx - (cx - view.tx) * k;
       view.ty = cy - (cy - view.ty) * k;
       view.s = ns;
       apply();
     }
-    let fitted = false;
-    fit();
+    frame(false);
 
-    // ---- highlight a node's path up to the stuck topic
-    function downstream(id) {
+    // ---- path highlighting
+    const walk = (id, next) => {
       const seen = new Set([id]), stack = [id];
-      while (stack.length) for (const t of out[stack.pop()]) if (!seen.has(t)) { seen.add(t); stack.push(t); }
+      while (stack.length) for (const t of next[stack.pop()]) if (!seen.has(t)) { seen.add(t); stack.push(t); }
       return seen;
-    }
-    function upstream(id) {
-      const seen = new Set([id]), stack = [id];
-      while (stack.length) for (const s of inc[stack.pop()]) if (!seen.has(s)) { seen.add(s); stack.push(s); }
-      return seen;
-    }
+    };
     function light(id) {
-      if (!id) { svg.classList.remove("focusing"); svg.querySelectorAll(".lit").forEach((x) => x.classList.remove("lit")); return; }
-      const set = id === d.stuck.id ? upstream(id) : downstream(id);
-      svg.classList.add("focusing");
-      svg.querySelectorAll(".gn").forEach((g) => g.classList.toggle("lit", set.has(g.dataset.id)));
-      svg.querySelectorAll(".ge").forEach((p) => p.classList.toggle("lit", set.has(p.dataset.s) && set.has(p.dataset.t)));
+      stage.classList.toggle("focusing", !!id);
+      const set = id ? (id === d.stuck.id ? walk(id, inc) : walk(id, out)) : new Set();
+      cardsBox.querySelectorAll(".gcard").forEach((c) => c.classList.toggle("lit", set.has(c.dataset.id)));
+      edgeSvg.querySelectorAll(".gedge").forEach((g) => g.classList.toggle("lit", set.has(g.dataset.s) && set.has(g.dataset.t)));
     }
     let selected = null;
     function select(id) {
       selected = id;
-      svg.querySelectorAll(".gn").forEach((g) => g.classList.toggle("sel", g.dataset.id === id));
+      cardsBox.querySelectorAll(".gcard").forEach((c) => {
+        c.classList.toggle("sel", c.dataset.id === id);
+        c.setAttribute("aria-pressed", String(c.dataset.id === id));
+      });
       light(id);
       const n = byId[id];
       if (!n) { detail.innerHTML = ""; return; }
       const isRoot = id === d.root.id, isStuck = id === d.stuck.id;
       const where = isStuck ? "Where you're stuck" : `${n.hops} ${n.hops === 1 ? "step" : "steps"} below ${esc(d.stuck.name)}`;
-      detail.innerHTML = `<div class="gd card">
-        <p class="gd-where">${isRoot ? `<span class="rc-sticker gd-sticker">Root cause</span>` : ""}<span class="muted">${where}</span></p>
-        <p class="gd-name">${esc(n.name)}</p>
-        <p class="node-meta">${badge(n.status)}<span class="num">${esc(pct(n.score))}</span><span class="muted">Unlocks ${n.unlocks} later ${n.unlocks === 1 ? "topic" : "topics"}</span></p>
+      const [a, b] = SPH[n.status] || SPH["Not tried"];
+      detail.innerHTML = `<div class="gdetail ${isRoot ? "root" : n.status === "Weak" ? "weak" : "calm"}">
+        <div class="gdetail-head">
+          <span class="gsph big" style="--a:${a};--b:${b}"><svg aria-hidden="true"><use href="#i-${STATUS_GLYPH[n.status] || "dash"}"/></svg></span>
+          <div><p class="gdetail-where">${isRoot ? "Root cause, " : ""}${where}</p><p class="gdetail-name">${esc(n.name)}</p></div>
+        </div>
+        <p class="gdetail-facts"><b>${esc(n.status)}</b>${n.score === null || n.score === undefined ? "" : `<span>${n.score}%</span>`}<span>Unlocks ${n.unlocks} later ${n.unlocks === 1 ? "topic" : "topics"}</span></p>
         <p>${esc(n.summary || "")}</p>
-        <div class="btn-row">
-          ${isRoot ? `<button class="btn btn-primary" type="button" data-gaction="quiz">Test me on ${esc(n.name)}</button>` : ""}
-          ${!isStuck ? `<button class="btn btn-secondary" type="button" data-gaction="diag" data-id="${esc(n.id)}" data-name="${esc(n.name)}">Diagnose ${esc(n.name)}</button>` : ""}
-          <button class="btn btn-ghost" type="button" data-gaction="close">Close</button>
+        <div class="gdetail-actions">
+          ${isRoot ? `<button class="gpill" type="button" data-gaction="quiz">Test me on this</button>` : ""}
+          ${!isStuck ? `<button class="gpill${isRoot ? " ghost" : ""}" type="button" data-gaction="diag" data-id="${esc(n.id)}" data-name="${esc(n.name)}">Diagnose this topic</button>` : ""}
+          <button class="gpill ghost" type="button" data-gaction="close">Close</button>
         </div>
       </div>`;
     }
 
-    // ---- pointer: drag to pan, pinch / ctrl+wheel / double-tap to zoom, tap a node to select
+    // ---- pointer: drag anywhere to pan (cards included), pinch or ctrl+wheel to zoom, tap a card to select
     const pts = new Map();
-    let moved = 0, pinch0 = 0, downNode = null;
-    svg.addEventListener("pointerdown", (e) => {
-      svg.setPointerCapture(e.pointerId);
+    let moved = 0, pinch0 = 0;
+    stage.addEventListener("pointerdown", (e) => {
+      if (e.target.closest(".gtools")) return;
       pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
       moved = 0;
-      downNode = e.target.closest(".gn");
-      if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch0 = Math.hypot(a.x - b.x, a.y - b.y); }
-      svg.classList.add("grabbing");
+      if (pts.size === 2) { const [p, q] = [...pts.values()]; pinch0 = Math.hypot(p.x - q.x, p.y - q.y); }
     });
-    svg.addEventListener("pointermove", (e) => {
+    stage.addEventListener("pointermove", (e) => {
       const p = pts.get(e.pointerId);
       if (!p) {
-        const g = e.target.closest(".gn");
-        if (!selected) light(g ? g.dataset.id : null);
+        if (!selected) { const c = e.target.closest(".gcard"); light(c ? c.dataset.id : null); }
         return;
       }
       const dx = e.clientX - p.x, dy = e.clientY - p.y;
       pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (pts.size === 2) {
         const [a, b] = [...pts.values()];
-        const dist = Math.hypot(a.x - b.x, a.y - b.y);
-        const rect = svg.getBoundingClientRect();
+        const dist = Math.hypot(a.x - b.x, a.y - b.y), rect = stage.getBoundingClientRect();
         if (pinch0) zoomAt(dist / pinch0, (a.x + b.x) / 2 - rect.left, (a.y + b.y) / 2 - rect.top);
-        pinch0 = dist;
-        moved += 10;
+        pinch0 = dist; moved += 10;
         return;
       }
       moved += Math.abs(dx) + Math.abs(dy);
-      view.tx += dx; view.ty += dy;
-      apply();
+      if (moved > 5) {
+        if (!stage.hasPointerCapture(e.pointerId)) stage.setPointerCapture(e.pointerId);
+        stage.classList.add("grabbing");
+        view.tx += dx; view.ty += dy;
+        apply();
+      }
     });
     const end = (e) => {
       pts.delete(e.pointerId);
       if (pts.size < 2) pinch0 = 0;
-      if (!pts.size) svg.classList.remove("grabbing");
-      if (e.type === "pointerup" && moved < 6) {
-        if (downNode) select(downNode.dataset.id);
-        else if (selected) select(null);
-      }
+      if (!pts.size) stage.classList.remove("grabbing");
     };
-    svg.addEventListener("pointerup", end);
-    svg.addEventListener("pointercancel", end);
-    svg.addEventListener("pointerleave", () => { if (!selected && !pts.size) light(null); });
-    svg.addEventListener("wheel", (e) => {
+    stage.addEventListener("pointerup", end);
+    stage.addEventListener("pointercancel", end);
+    stage.addEventListener("pointerleave", () => { if (!selected && !pts.size) light(null); });
+    stage.addEventListener("click", (e) => {
+      if (e.target.closest(".gtools")) return;
+      if (moved > 5) { moved = 0; return; } // that was a drag, not a tap
+      const c = e.target.closest(".gcard");
+      if (c) select(c.dataset.id === selected ? null : c.dataset.id);
+      else if (selected) select(null);
+    });
+    stage.addEventListener("wheel", (e) => {
       if (!e.ctrlKey && !e.metaKey) return;
       e.preventDefault();
-      const rect = svg.getBoundingClientRect();
-      zoomAt(e.deltaY < 0 ? 1.15 : 1 / 1.15, e.clientX - rect.left, e.clientY - rect.top);
+      const rect = stage.getBoundingClientRect();
+      zoomAt(e.deltaY < 0 ? 1.12 : 1 / 1.12, e.clientX - rect.left, e.clientY - rect.top);
     }, { passive: false });
-    svg.addEventListener("dblclick", (e) => {
-      const rect = svg.getBoundingClientRect();
-      zoomAt(1.5, e.clientX - rect.left, e.clientY - rect.top);
+    stage.addEventListener("focusin", (e) => {
+      const c = e.target.closest(".gcard");
+      if (!c) return;
+      if (!selected) light(c.dataset.id);
+      // keep the focused card on screen when tabbing through
+      const n = byId[c.dataset.id];
+      const sx = n.x * view.s + view.tx, sy = n.y * view.s + view.ty;
+      if (sx < 0 || sy < 0 || sx + CARD_W * view.s > CW || sy + CARD_H * view.s > CH) {
+        view.tx = CW / 2 - n.cx * view.s; view.ty = CH / 2 - (n.y + CARD_H / 2) * view.s; apply();
+      }
     });
-    svg.addEventListener("focusin", (e) => { const g = e.target.closest(".gn"); if (g && !selected) light(g.dataset.id); });
-    svg.addEventListener("keydown", (e) => {
-      const g = e.target.closest(".gn");
-      if (g && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); select(g.dataset.id); }
-      if (e.key === "Escape") { select(null); }
-    });
-    wrap.querySelector(".gmap-tools").addEventListener("click", (e) => {
+    stage.addEventListener("keydown", (e) => { moved = 0; if (e.key === "Escape") select(null); });
+    wrap.querySelector(".gtools").addEventListener("click", (e) => {
       const b = e.target.closest("[data-gz]");
       if (!b) return;
-      if (b.dataset.gz === "in") zoomAt(1.3);
-      if (b.dataset.gz === "out") zoomAt(1 / 1.3);
-      if (b.dataset.gz === "fit") { fitted = !fitted; fit(fitted); b.textContent = fitted ? "Chain" : "All"; }
+      if (b.dataset.gz === "in") zoomAt(1.2);
+      if (b.dataset.gz === "out") zoomAt(1 / 1.2);
+      if (b.dataset.gz === "fit") {
+        showAll = !showAll; frame(showAll);
+        b.setAttribute("aria-pressed", String(showAll));
+        b.setAttribute("aria-label", showAll ? "Back to the diagnosed chain" : "Show the whole root system");
+      }
     });
     detail.addEventListener("click", (e) => {
       const b = e.target.closest("[data-gaction]");
@@ -299,7 +325,10 @@
       if (b.dataset.gaction === "diag") onDiagnose(b.dataset.id, b.dataset.name);
     });
     let rt;
-    const onResize = () => { clearTimeout(rt); rt = setTimeout(() => { if (document.body.contains(svg)) fit(fitted); else removeEventListener("resize", onResize); }, 150); };
+    const onResize = () => {
+      clearTimeout(rt);
+      rt = setTimeout(() => { if (document.body.contains(stage)) frame(showAll); else removeEventListener("resize", onResize); }, 150);
+    };
     addEventListener("resize", onResize);
     select(d.root.id);
   }
