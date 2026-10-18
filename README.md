@@ -90,7 +90,7 @@ python -m scripts.test_queries     # seeds rootcause_test, prints every result, 
   (~170 KB gzipped); everything else on a page is ~30 KB.
 - **FastAPI** backend, plain **HTML/CSS/vanilla JS** frontend served by FastAPI. No framework, no CDN,
   no web fonts, about 30 KB gzipped for the whole page.
-- **AI via Groq or OpenRouter** (optional; Groq `llama-3.3-70b-versatile` when `GROQ_API_KEY` is set,
+- **AI via Groq or OpenRouter** (optional; Groq `openai/gpt-oss-120b` when `GROQ_API_KEY` is set,
   otherwise OpenRouter, default `nvidia/nemotron-3-super-120b-a12b:free`) only for a
   friendly explanation, quiz questions for topics without a hand-written set, and study notes. Every call
   runs off the request path or under a hard deadline, so the app never waits on it. With no

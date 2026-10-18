@@ -15,7 +15,7 @@ PROVIDERS = {
     "groq": {
         "key": "GROQ_API_KEY",
         "url": "https://api.groq.com/openai/v1/chat/completions",
-        "model": os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
+        "model": os.getenv("GROQ_MODEL", "openai/gpt-oss-120b"),
         "json": "object",  # JSON mode; the schema is described in the prompt and validated after
     },
     "openrouter": {
@@ -69,6 +69,9 @@ def _ask(system: str, prompt: str, schema: dict | None = None, max_tokens: int =
         "temperature": 0.4,
         "messages": [{"role": "system", "content": system}, {"role": "user", "content": prompt}],
     }
+    if "gpt-oss" in p["model"]:
+        body["reasoning_effort"] = "low"  # keep the hidden reasoning short so the answer fits and arrives fast
+        body["max_tokens"] = max_tokens + 1200
     if schema:
         body["messages"][1]["content"] += (
             "\n\nReply with a single JSON object only, no other text. It must match this JSON schema:\n"
@@ -78,7 +81,8 @@ def _ask(system: str, prompt: str, schema: dict | None = None, max_tokens: int =
             body["response_format"] = {"type": "json_schema", "json_schema": {"name": "result", "strict": True, "schema": schema}}
         else:
             body["response_format"] = {"type": "json_object"}
-    headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
+    # A real User-Agent: Groq's edge rejects Python's default "Python-urllib" one with a 403.
+    headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json", "User-Agent": "RootCause/1.0"}
     if name == "openrouter":
         headers["HTTP-Referer"] = os.getenv("PUBLIC_URL", "https://rootcause-production-b767.up.railway.app")
         headers["X-Title"] = "RootCause"
