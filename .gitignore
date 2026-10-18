@@ -6,3 +6,5 @@ venv/
 lighthouse-*.json
 lighthouse-*.html
 node_modules/
+demo/motion/_frames/
+demo/motion/_audio/

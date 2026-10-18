@@ -210,7 +210,7 @@ export function mount(el, { compact = false } = {}) {
     ringMat.opacity = 0.55 * (1 - ((time * 0.6) % 1));
     beads.forEach((b) => {
       b.t = (b.t + dt * 0.12) % 1;
-      b.m.position.copy(main.curve.getPointAt(1 - b.t));
+      b.m.position.copy(main.curve.getPointAt(Math.min(0.999, Math.max(0, 1 - b.t))));
     });
     orbA.position.y = 4.6 + Math.sin(time * 1.1) * 0.18;
     orbB.position.y = 2.2 + Math.sin(time * 1.4 + 1) * 0.14;
