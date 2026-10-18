@@ -1,6 +1,6 @@
 /* RootCause service worker: app shell + last diagnosis available offline. */
-const VERSION = "rc-v3";
-const SHELL = ["/", "/styles.css", "/app.js", "/manifest.webmanifest", "/icons/icon.svg", "/icons/icon-192.png"];
+const VERSION = "rc-v4";
+const SHELL = ["/", "/styles.css", "/app.js", "/art.js", "/manifest.webmanifest", "/icons/icon.svg", "/icons/icon-192.png"];
 const LAST_DIAGNOSIS = "/__last-diagnosis";
 
 self.addEventListener("install", (e) => {
@@ -48,14 +48,11 @@ self.addEventListener("fetch", (e) => {
     return;
   }
 
-  // Static assets: cache first, refresh in the background.
+  // Static assets: network first so a new deploy is never hidden, cache when offline.
   e.respondWith(
-    caches.match(req).then((hit) => {
-      const net = fetch(req).then((res) => {
-        if (res.ok) { const copy = res.clone(); caches.open(VERSION).then((c) => c.put(req, copy)); }
-        return res;
-      }).catch(() => hit);
-      return hit || net;
-    })
+    fetch(req).then((res) => {
+      if (res.ok) { const copy = res.clone(); caches.open(VERSION).then((c) => c.put(req, copy)); }
+      return res;
+    }).catch(() => caches.match(req))
   );
 });

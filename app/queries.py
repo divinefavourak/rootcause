@@ -85,21 +85,28 @@ MATCH (c:Concept {id: $concept_id})
 RETURN c.id AS id, c.name AS name, c.unit AS unit, c.summary AS summary
 """
 
-# The prerequisite neighbourhood for the optional graph view: every concept on any
-# prerequisite path from the root cause up to the stuck concept, plus the stuck
-# concept's direct prerequisites. Return every PREREQUISITE_OF edge between them.
-CONCEPT_NEIGHBOURHOOD = f"""
-MATCH (root:Concept {{id: $root_id}}), (stuck:Concept {{id: $concept_id}})
-MATCH p = (root)-[:PREREQUISITE_OF*0..{12}]->(stuck)
-UNWIND nodes(p) AS n
-WITH stuck, collect(DISTINCT n) AS core
-OPTIONAL MATCH (pre:Concept)-[:PREREQUISITE_OF]->(stuck)
-WITH core, collect(DISTINCT pre) AS direct
-WITH core + direct AS near
-UNWIND near AS x
-MATCH (x)-[:PREREQUISITE_OF]->(y)
-WHERE y IN near
-RETURN DISTINCT x.id AS source, x.name AS source_name, y.id AS target, y.name AS target_name
+# The "root system" for the interactive graph view, part 1: the stuck concept plus
+# every concept upstream of it (all prerequisites, direct or indirect), each with its
+# shortest hop distance from the stuck concept (used as the row in the drawing) and
+# how many later topics it unlocks.
+ROOT_SYSTEM_NODES = f"""
+MATCH (stuck:Concept {{id: $concept_id}})
+MATCH p = (a:Concept)-[:PREREQUISITE_OF*0..{MAX_HOPS}]->(stuck)
+WITH a, min(length(p)) AS hops
+OPTIONAL MATCH (a)-[:PREREQUISITE_OF*1..{MAX_HOPS}]->(later:Concept)
+RETURN a.id AS id, a.name AS name, a.summary AS summary, hops, count(DISTINCT later) AS unlocks
+ORDER BY hops, name
+"""
+
+# Part 2: every PREREQUISITE_OF edge between two concepts in that root system.
+ROOT_SYSTEM_EDGES = f"""
+MATCH (stuck:Concept {{id: $concept_id}})
+MATCH (x:Concept)-[:PREREQUISITE_OF*0..{MAX_HOPS}]->(stuck)
+WITH collect(DISTINCT x) AS upstream
+UNWIND upstream AS a
+MATCH (a)-[:PREREQUISITE_OF]->(b:Concept)
+WHERE b IN upstream
+RETURN DISTINCT a.id AS source, b.id AS target
 """
 
 

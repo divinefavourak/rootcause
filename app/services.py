@@ -144,15 +144,17 @@ def _explanation(stuck: dict, root: dict, chain_names: list[str]) -> tuple[str, 
     return (text, "ai") if text else (template, "template")
 
 
-def _graph_view(student_id, root_id, concept_id, statuses):
-    edges = db.ro(Q.CONCEPT_NEIGHBOURHOOD, {"root_id": root_id, "concept_id": concept_id})
-    nodes = {}
-    for e in edges:
-        nodes[e["source"]] = e["source_name"]
-        nodes[e["target"]] = e["target_name"]
+def _graph_view(concept_id, overview_rows):
+    by_id = {r["id"]: r for r in overview_rows}
+    nodes = db.ro(Q.ROOT_SYSTEM_NODES, {"concept_id": concept_id})
+    edges = db.ro(Q.ROOT_SYSTEM_EDGES, {"concept_id": concept_id})
     return {
-        "nodes": [{"id": i, "name": n, "status": statuses.get(i, "Not tried")} for i, n in nodes.items()],
-        "edges": [{"source": e["source"], "target": e["target"]} for e in edges],
+        "nodes": [{
+            "id": n["id"], "name": n["name"], "summary": n["summary"], "hops": n["hops"],
+            "unlocks": n["unlocks"], "status": by_id.get(n["id"], {}).get("status", "Not tried"),
+            "score": by_id.get(n["id"], {}).get("score"),
+        } for n in nodes],
+        "edges": edges,
     }
 
 
@@ -184,8 +186,7 @@ def diagnose(student_id: str, concept_id: str, explain: bool = True) -> dict:
         text, source = _explanation(stuck, root, [r["name"] for r in chain_rows])
         result["explanation"] = text
         result["explanation_source"] = source
-        statuses = {r["id"]: r["status"] for r in overview(student_id)["concepts"]}
-        result["graph"] = _graph_view(student_id, root["id"], concept_id, statuses)
+        result["graph"] = _graph_view(concept_id, overview(student_id)["concepts"])
     return result
 
 

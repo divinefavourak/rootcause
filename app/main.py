@@ -3,7 +3,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from redis.exceptions import ConnectionError as RedisConnectionError
@@ -96,6 +96,15 @@ def service_worker():
 @app.get("/manifest.webmanifest", include_in_schema=False)
 def manifest():
     return FileResponse(STATIC / "manifest.webmanifest", media_type="application/manifest+json")
+
+
+# Link previews (WhatsApp etc.) need an absolute og:image URL, so fill in the host we were reached on.
+@app.get("/", include_in_schema=False)
+def index(request: Request):
+    html = (STATIC / "index.html").read_text(encoding="utf-8")
+    base = str(request.base_url).rstrip("/")
+    html = html.replace('content="/icons/og.png"', f'content="{base}/icons/og.png"')
+    return HTMLResponse(html, headers={"Cache-Control": "no-cache"})
 
 
 @app.middleware("http")

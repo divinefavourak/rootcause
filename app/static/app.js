@@ -18,7 +18,7 @@
     set(k, v) { try { localStorage.setItem("rc:" + k, JSON.stringify(v)); } catch { /* storage blocked: fine */ } },
   };
 
-  const state = { students: [], student: null, diagnosis: null, selected: null, quiz: null, qIndex: 0, answers: [], result: null, overview: null, chainView: "list", filter: "All", lastChange: null };
+  const state = { students: [], student: null, diagnosis: null, selected: null, quiz: null, qIndex: 0, answers: [], result: null, overview: null, chainView: matchMedia("(min-width: 900px)").matches ? "graph" : "list", filter: "All", lastChange: null };
 
   // ------------------------------------------------------------------ api
   async function api(path, body) {
@@ -361,7 +361,8 @@
     const kicker = r.is_self ? `Your foundations hold. Work on ${esc(d.stuck.name)} itself.` : `Start here, ${steps} below ${esc(d.stuck.name)}`;
     const shown = r.score === null || r.score === undefined ? "–" : (animateNumber && !reduced() ? 0 : r.score);
     return `<article class="card rc-card" aria-labelledby="rcName">
-      <p class="rc-kicker">${icon("root")}<span>${kicker}</span></p>
+      <span class="rc-sticker">${icon("root")}Root cause</span>
+      <p class="rc-kicker"><span>${kicker}</span></p>
       <h2 class="rc-name" id="rcName">${esc(r.name)}</h2>
       <div class="rc-score">
         <span class="rc-number" id="rcNumber" aria-label="Your score ${esc(pct(r.score))}">${shown}${r.score === null || r.score === undefined ? "" : "<small>%</small>"}</span>
@@ -397,48 +398,12 @@
         <h2 class="section-title" id="chainTitle">How we traced it</h2>
         <div class="view-toggle" role="group" aria-label="Chain view">
           <button type="button" data-chainview="list" aria-pressed="${state.chainView === "list"}">List</button>
-          <button type="button" data-chainview="graph" aria-pressed="${state.chainView === "graph"}">Graph view</button>
+          <button type="button" data-chainview="graph" aria-pressed="${state.chainView === "graph"}">Root map</button>
         </div>
       </div>
-      ${state.chainView === "graph" ? `<div class="graph-wrap">${graphSVG(d)}</div>` : ""}
+      ${state.chainView === "graph" ? RootArt.mapHTML(d) : ""}
       <ol class="rootline${animate && !reduced() ? " drawing" : ""}" aria-label="From the topic you're stuck on down to its root cause">${items}</ol>
     </section>`;
-  }
-
-  function graphSVG(d) {
-    const g = d.graph || { nodes: [], edges: [] };
-    if (!g.nodes.length) return `<p class="muted">${esc(d.stuck.name)} has no prerequisites to draw.</p>`;
-    const preds = {}; g.nodes.forEach((n) => (preds[n.id] = []));
-    g.edges.forEach((e) => preds[e.target].push(e.source));
-    const level = {};
-    const lv = (id, seen = new Set()) => {
-      if (level[id] !== undefined) return level[id];
-      if (seen.has(id)) return 0; seen.add(id);
-      return (level[id] = preds[id].length ? 1 + Math.max(...preds[id].map((p) => lv(p, seen))) : 0);
-    };
-    g.nodes.forEach((n) => lv(n.id));
-    const maxL = Math.max(...Object.values(level));
-    const rows = {}; g.nodes.forEach((n) => (rows[level[n.id]] = rows[level[n.id]] || []).push(n));
-    const rw = $("#results")?.clientWidth || 360;
-    const W = Math.round(Math.max(260, Math.min(560, (rw >= 900 ? (rw - 32) / 2 : rw) - 50))), rowH = 84, H = (maxL + 1) * rowH + 24, pos = {};
-    Object.entries(rows).forEach(([l, ns]) => ns.forEach((n, i) => {
-      pos[n.id] = { x: (W / (ns.length + 1)) * (i + 1), y: 30 + (maxL - Number(l)) * rowH };
-    }));
-    const chainPairs = new Set(d.chain.slice(0, -1).map((c, i) => d.chain[i + 1].id + ">" + c.id));
-    const widest = Math.max(...Object.values(rows).map((ns) => ns.length));
-    const maxChars = Math.max(8, Math.floor(W / (widest + 0.4) / 8));
-    const short = (s) => (s.length > maxChars ? s.slice(0, maxChars - 1) + "…" : s);
-    const edges = g.edges.map((e) => {
-      const a = pos[e.source], b = pos[e.target];
-      return `<path class="g-edge${chainPairs.has(e.source + ">" + e.target) ? " on-chain" : ""}" d="M${a.x} ${a.y} C ${a.x} ${(a.y + b.y) / 2}, ${b.x} ${(a.y + b.y) / 2}, ${b.x} ${b.y}"/>`;
-    }).join("");
-    const nodes = g.nodes.map((n) => {
-      const p = pos[n.id], root = n.id === d.root.id;
-      return `<g class="g-node${root ? " root" : ""}" data-s="${esc(n.status)}"><title>${esc(n.name)}: ${esc(n.status)}</title>
-        <circle cx="${p.x}" cy="${p.y}" r="${root ? 13 : 10}"/>
-        <text x="${p.x}" y="${p.y + 30}" text-anchor="middle">${esc(short(n.name))}</text></g>`;
-    }).join("");
-    return `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Prerequisite map of ${g.nodes.length} topics. The list below shows the same chain.">${edges}${nodes}</svg>`;
   }
 
   // plan ---------------------------------------------------------------
@@ -507,12 +472,19 @@
     box.classList.add("has-data");
     $("#homeMain").classList.add("has-results");
     if (animate) countUp($("#rcNumber"), d.root.score);
+    if (state.chainView === "graph") {
+      RootArt.initMap(d, {
+        badge, pct,
+        onQuiz: startQuiz,
+        onDiagnose: (id, name) => { $("#topic").value = name; diagnose(id, name); },
+      });
+    }
   }
 
   // ------------------------------------------------------------------ plan view
   function emptyHTML(title, text) {
     return `<div class="empty">
-      <svg class="empty-art" viewBox="0 0 64 120" aria-hidden="true"><path class="l" d="M32 14 V96"/><circle class="d" cx="32" cy="16" r="8"/><circle class="d" cx="32" cy="56" r="8"/><circle class="r" cx="32" cy="98" r="12"/></svg>
+      <div class="empty-art">${RootArt.heroArt()}</div>
       <p class="empty-title">${esc(title)}</p><p class="muted">${esc(text)}</p>
       <a class="btn btn-primary" href="#home">Find the root</a></div>`;
   }
@@ -739,6 +711,7 @@
   addEventListener("hashchange", route);
 
   async function boot() {
+    $$("[data-art]").forEach((el) => { el.innerHTML = RootArt.heroArt(); });
     initTheme();
     initAsk();
     paintOnline();

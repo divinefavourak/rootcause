@@ -1,0 +1,163 @@
+# RootCause
+
+**Find the real reason a topic feels hard.**
+
+A student says *"I don't get flip-flops."* RootCause walks backwards through a prerequisite graph in
+**FalkorDB**, finds the weakest concept underneath (for our demo student: De Morgan's Theorems, 35%,
+four steps down), and gives a 3-day plan that starts there. A quick 3-question quiz writes the result
+back into the student's memory graph, and the next diagnosis changes live.
+
+Built for the **WeMakeDevs Graph Hacks** hackathon. Track: **Agent Memory and Coordination**.
+
+<p>
+  <img src="screenshots/04_diagnosis_390_light.png" width="240" alt="Diagnosis screen: root cause card and root line chain">
+  <img src="screenshots/09_quiz_review_390_light.png" width="240" alt="Quiz review with correct and wrong answers">
+  <img src="screenshots/11_after_quiz_390_dark.png" width="240" alt="Diagnosis after the quiz, dark mode">
+</p>
+<img src="screenshots/04_diagnosis_1280_light.png" width="760" alt="Desktop two-column layout">
+
+---
+
+## Why a graph
+
+"Why am I failing flip-flops?" is a path question. Flip-flops are built on latches, which are built on
+NAND/NOR gates, which only make sense once De Morgan's theorems click. A table of scores can't tell you
+which low score is *to blame*; a traversal can. In RootCause:
+
+- **Diagnosis** is a variable-length traversal *backwards* along `PREREQUISITE_OF`, joined with the
+  student's own `STRUGGLED_WITH` / `MASTERED` edges.
+- **The plan** is the set of weak ancestors, ordered by depth so foundations come first.
+- **Memory** is the edges themselves. A quiz result deletes the old edge and MERGEs the right one,
+  so the graph *is* the student's memory, and the next traversal sees it immediately.
+
+Remove FalkorDB and nothing works: there is no other database.
+
+## Graph model
+
+```
+(:Course {code})-[:COVERS]->(:Concept {id, name, unit, aliases, summary})
+(:Concept)-[:PREREQUISITE_OF]->(:Concept)
+(:Student {id, name})-[:STRUGGLED_WITH {score, date, history}]->(:Concept)
+(:Student)-[:MASTERED {score, date, history}]->(:Concept)
+```
+
+Seeded with a synthetic **IFT 211 Digital Logic** course: **56 concepts**, **83 prerequisite edges**,
+spoken-form aliases ("k map", "karnaugh", "demorgans", "mux"), and **2 invented students** with score
+history. No real personal data anywhere.
+
+## The queries (all in [`app/queries.py`](app/queries.py))
+
+Every Cypher statement lives in one file with a plain-English comment above it.
+
+| Query | What it does in plain English |
+|---|---|
+| `ROOT_CAUSE` | Walk back from the stuck topic to every ancestor (`*0..12`), keep the shortest hop count to each, join the student's score. Among the ones they struggled with, lowest score wins; ties go to the closer one. The stuck topic itself is only chosen if nothing underneath is weak. |
+| `ROOT_CHAIN` | Among the shortest paths from the root cause up to the stuck topic, pick the one running through the weakest concepts (pattern comprehension scores each path), and return each step with its status. This is the "root line" on screen. |
+| `UPDATE_MASTERY` | Find the old `STRUGGLED_WITH`/`MASTERED` edge, keep its history, delete it, blend old and new score (new counts 60%), then `MERGE` exactly one new edge: `MASTERED` at 60% or more, else `STRUGGLED_WITH`. Returns before and after. |
+| `FIX_PLAN` | Every weak ancestor, deepest first (longest path back), weakest first within a depth, with the stuck topic last, split into Day 1/2/3 by position. |
+| `STUDENT_OVERVIEW` | Every concept with Weak (<50) / Okay (50–69) / Strong (70+) / Not tried, plus how many later topics it unlocks (downstream traversal). |
+| `RESOLVE_CONCEPT` | FalkorDB full-text index (RediSearch, English stemming) over name and aliases, with fuzzy and prefix terms. Exact or whole-phrase alias matches rank first; confidence decides between auto-select and "Did you mean...?" chips. |
+| `QUIZ_FACTS` | When there is no LLM and no hand-written question bank, builds a quiz from the graph itself: "Which topic should you learn before X?" (answer: a real prerequisite; distractors: things that come *after* X). |
+| `CONCEPT_NEIGHBOURHOOD` | Every concept on any path between root cause and stuck topic, for the optional graph view. |
+
+Run them all against a throwaway graph:
+
+```bash
+python -m scripts.test_queries     # seeds rootcause_test, prints every result, 15 checks, deletes it
+```
+
+## Demo script (2 minutes)
+
+1. Pick **Tobi A.**, type or say *"I don't get flip flops"*.
+2. The root line draws itself: Flip-Flops → D Latch → SR Latch → NAND and NOR Gates → **De Morgan's Theorems (35%)**.
+3. Tap **Test me on De Morgan's Theorems**, answer 3 questions (tap or say "B", "the second one").
+4. **See what changed**: the De Morgan node heals from Weak to Strong, the line turns green, and the
+   diagnosis re-runs: the next root is **SR Latch (42%)**. The plan moves on with it.
+5. Progress tab: every topic in the course, grouped by unit, with the count of topics each one unlocks.
+6. Try **Amaka E.** with *"k map"*: root cause is **Gray Code**.
+
+## Stack
+
+- **FalkorDB** (graph DB, full-text index) via Docker, Python client `falkordb`
+- **FastAPI** backend, plain **HTML/CSS/vanilla JS** frontend served by FastAPI. No framework, no CDN,
+  no web fonts, about 22 KB gzipped for the whole page.
+- **Claude** (Anthropic API, optional) only for a friendly one-line explanation and for writing 3 quiz
+  questions. With no `ANTHROPIC_API_KEY` the app uses template text, a hand-written question bank, and
+  graph-built questions, so it always runs.
+- **Voice** via the browser's Web Speech API (en-NG first, en-US fallback) and `speechSynthesis` for
+  Listen buttons. **No audio is ever recorded or sent**; only the final text goes to the backend.
+  Typing always works; speech never auto-submits.
+- **PWA**: manifest, maskable icons, service worker caching the shell and the last diagnosis.
+
+Lighthouse (mobile, local): Performance 100, Accessibility 100, Best Practices 100, SEO 100.
+
+## API
+
+| Method | Path | Body / params |
+|---|---|---|
+| GET | `/api/students` | |
+| GET | `/api/concepts` | |
+| GET | `/api/concepts/resolve?q=` | free text, e.g. `I don't get flip flops` |
+| POST | `/api/diagnose` | `{student_id, concept_id}` |
+| POST | `/api/quiz/generate` | `{student_id, concept_id}` |
+| POST | `/api/quiz/submit` | `{student_id, quiz_id, stuck_id, answers: [0-3 or null]}` |
+| GET | `/api/overview/{student_id}` | |
+| GET | `/api/health` | |
+
+## Run it locally
+
+Needs Docker and Python 3.11+.
+
+```bash
+docker compose up -d                 # FalkorDB on :6379 (browser UI on :3000)
+pip install -r requirements.txt
+python -m scripts.seed               # loads IFT 211 + 2 demo students
+uvicorn app.main:app --reload        # http://localhost:8000
+```
+
+Optional: `cp .env.example .env` and set `ANTHROPIC_API_KEY` (and `ANTHROPIC_MODEL`, default
+`claude-opus-5-5`). To point at **FalkorDB Cloud**, set `FALKORDB_HOST`, `FALKORDB_PORT`,
+`FALKORDB_USERNAME`, `FALKORDB_PASSWORD` in `.env`, then run the seed.
+
+On Windows without Docker Desktop: run `docker compose up -d` inside WSL from the repo folder
+(`/mnt/c/...`); WSL forwards `localhost:6379` to Windows.
+
+**One container** (FalkorDB + app together, seeds itself on first boot):
+
+```bash
+docker build -t rootcause . && docker run -p 8000:8000 rootcause
+```
+
+### Deploy
+
+The same Dockerfile deploys to **Fly.io** (`fly deploy`, config in `fly.toml`) or **Render**
+(`render.yaml` blueprint, Docker runtime). Both give HTTPS, which the mic needs. Set
+`FALKORDB_HOST` etc. to use FalkorDB Cloud instead of the bundled server.
+
+### QA scripts
+
+```bash
+python -m scripts.screenshots          # every screen x 360/390/768/1280 x light/dark -> screenshots/
+python -m scripts.screenshots --quick  # 360px only
+python -m scripts.make_icons           # icon.svg -> PWA PNGs + og:image
+```
+
+## Accessibility
+
+Real ordered-list HTML for the chain (the graph view is optional and the list is always there), status
+always shown as icon + text (never colour alone), 48px touch targets, 16px body text, skip link,
+visible amber focus ring, `aria-live` for loading, results and voice state, full keyboard use,
+`prefers-reduced-motion` and `prefers-color-scheme` respected, plus a manual theme toggle.
+
+## Built with Claude Code
+
+This project was built with **Claude Code** (Anthropic's agentic coding tool) as a pair programmer:
+it wrote most of the code, the seed data, the Cypher queries and this README under my direction, ran
+the query tests and the screenshot/Lighthouse QA loop, and I reviewed and steered the design and
+product decisions. The app can also call the Claude API at runtime for explanations and quiz
+questions (optional, see above).
+
+## Data and privacy
+
+All course content and both students are synthetic. Nothing is collected from real people. Voice is
+processed by the browser; RootCause only ever receives the final text.
