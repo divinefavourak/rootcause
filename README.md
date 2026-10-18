@@ -9,6 +9,9 @@ back into the student's memory graph, and the next diagnosis changes live.
 
 Built for the **WeMakeDevs Graph Hacks** hackathon. Track: **Agent Memory and Coordination**.
 
+**Live demo:** https://rootcause-production-b767.up.railway.app (landing) and
+https://rootcause-production-b767.up.railway.app/app (the app).
+
 <p>
   <img src="screenshots/04_diagnosis_390_light.png" width="240" alt="Diagnosis screen: root cause card and root line chain">
   <img src="screenshots/09_quiz_review_390_light.png" width="240" alt="Quiz review with correct and wrong answers">
@@ -138,7 +141,8 @@ docker build -t rootcause . && docker run -p 8000:8000 rootcause
 
 ### Deploy
 
-The same Dockerfile deploys to **Fly.io** (`fly deploy`, config in `fly.toml`) or **Render**
+Deployed on **Railway** (`railway up`, config in `railway.json`, Dockerfile build, one container with
+FalkorDB inside that seeds itself on boot). The same Dockerfile also deploys to **Fly.io** (`fly deploy`, config in `fly.toml`) or **Render**
 (`render.yaml` blueprint, Docker runtime). Both give HTTPS, which the mic needs. Set
 `FALKORDB_HOST` etc. to use FalkorDB Cloud instead of the bundled server.
 
