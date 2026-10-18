@@ -1,0 +1,13 @@
+services:
+  falkordb:
+    image: falkordb/falkordb:latest
+    container_name: rootcause-falkordb
+    ports:
+      - "6379:6379"   # Redis protocol (the app talks to this)
+      - "3000:3000"   # FalkorDB Browser UI, handy for showing the graph to judges
+    volumes:
+      - falkordb_data:/var/lib/falkordb/data
+    restart: unless-stopped
+
+volumes:
+  falkordb_data:
