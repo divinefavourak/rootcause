@@ -9,6 +9,9 @@ back into the student's memory graph, and the next diagnosis changes live.
 
 Built for the **WeMakeDevs Graph Hacks** hackathon. Track: **Agent Memory and Coordination**.
 
+**Demo video (1 min):** [demo/rootcause-demo.mp4](demo/rootcause-demo.mp4), recorded on the live site with
+Claude in Chrome and finished with FFmpeg.
+
 **Live demo:** https://rootcause-production-b767.up.railway.app (landing) and
 https://rootcause-production-b767.up.railway.app/app (the app).
 
