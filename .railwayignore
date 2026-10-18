@@ -1,0 +1,6 @@
+screenshots/
+.git/
+__pycache__/
+*.pyc
+.env
+DESIGN_NOTES.md
