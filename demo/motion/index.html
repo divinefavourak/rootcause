@@ -3,7 +3,6 @@
 <head>
 <meta charset="utf-8">
 <title>RootCause launch film</title>
-<script type="importmap">{ "imports": { "/vendor/three.module.min.js": "../../app/static/vendor/three.module.min.js" } }</script>
 <style>
   :root { --ink:#141414; --cream:#FAF8F3; --green:#0B5D3B; --mint:#4CE38A; --amber:#F5B700; --red:#C62A2F; --shadow-color:#141414; --accent-glow:rgba(245,183,0,.32); }
   * { box-sizing: border-box; margin: 0; }
@@ -28,7 +27,7 @@
   #s2 h1 { font-size: 140px; font-weight: 900; letter-spacing: -6px; line-height: .95; margin: 26px 0 22px; }
   #s2 p { font-size: 34px; font-weight: 750; line-height: 1.25; }
   #s2 .three { position: absolute; right: 70px; top: 70px; width: 500px; height: 580px; }
-  #s2 .three > canvas { position: absolute; inset: -10%; width: 120%; height: 120%; }
+  #s2 .three svg.iso { width: 92%; height: auto; display: block; margin: 0 auto; overflow: visible; }
 
   /* S3 chain */
   #s3 .cap { position: absolute; left: 90px; top: 210px; width: 470px; }
@@ -48,14 +47,14 @@
   .glow { position: absolute; inset: -18px; border-radius: 34px; box-shadow: 0 0 0 10px rgba(245,183,0,.35), 0 0 60px 20px rgba(245,183,0,.35); opacity: 0; }
 
   /* S4 screens */
-  .frame { position: absolute; width: 860px; height: 540px; border: 4px solid var(--ink); border-radius: 22px; background: #fff; box-shadow: 10px 10px 0 var(--ink); overflow: hidden; }
+  .frame { position: absolute; width: 800px; height: 520px; border: 4px solid var(--ink); border-radius: 22px; background: #fff; box-shadow: 10px 10px 0 var(--ink); overflow: hidden; }
   .frame .bar { height: 40px; border-bottom: 3px solid var(--ink); display: flex; align-items: center; gap: 9px; padding: 0 16px; background: #fff; }
   .frame .bar i { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--ink); }
   .frame .bar i:nth-child(1) { background: var(--red); } .frame .bar i:nth-child(2) { background: var(--amber); } .frame .bar i:nth-child(3) { background: var(--mint); }
   .frame .bar span { margin-left: 14px; font-weight: 800; font-size: 16px; color: #5B5B55; }
   .frame .shot { position: absolute; top: 40px; left: 0; right: 0; bottom: 0; overflow: hidden; }
   .frame .shot img { width: 100%; display: block; will-change: transform; }
-  #s4 .label { position: absolute; left: 70px; bottom: 60px; width: 300px; font-size: 40px; font-weight: 900; line-height: 1.08; letter-spacing: -1px; }
+  #s4 .label { position: absolute; left: 60px; bottom: 70px; width: 330px; font-size: 40px; font-weight: 900; line-height: 1.08; letter-spacing: -1px; }
   #s4 .label p { font-size: 22px; font-weight: 700; color: #5B5B55; margin-top: 14px; letter-spacing: 0; }
 
   /* S5 heal */
@@ -76,7 +75,7 @@
   .tile p { font-size: 20px; font-weight: 650; opacity: .8; margin-top: 10px; }
 
   /* S7 tech */
-  #s7 .code { font-family: "Cascadia Code", Consolas, ui-monospace, monospace; font-size: 30px; line-height: 1.5; text-align: left; background: #1b1b1b; border: 3px solid #333; border-radius: 22px; padding: 30px 38px; color: #EDEDED; min-height: 250px; width: 980px; }
+  #s7 .code { font-family: "Cascadia Code", Consolas, ui-monospace, monospace; font-size: 24px; line-height: 1.6; text-align: left; background: #1b1b1b; border: 3px solid #333; border-radius: 22px; padding: 30px 38px; color: #EDEDED; min-height: 200px; width: 1100px; white-space: nowrap; }
   #s7 .code .k { color: var(--mint); } #s7 .code .s { color: var(--amber); }
   #s7 h2 { font-size: 58px; font-weight: 900; letter-spacing: -2px; margin-bottom: 34px; }
   #s7 .facts { margin-top: 34px; display: flex; gap: 22px; justify-content: center; }
@@ -187,7 +186,7 @@
   const tl = gsap.timeline({ paused: true, defaults: { ease: "power3.out" } });
   const show = (id, at) => tl.set(id, { visibility: "visible" }, at);
   const hide = (id, at) => tl.set(id, { visibility: "hidden" }, at);
-  const flash = (at) => tl.fromTo("#flash", { visibility: "visible", opacity: 0.9 }, { opacity: 0, duration: 0.35, ease: "power2.out", onComplete: () => {} }, at).set("#flash", { visibility: "hidden" }, at + 0.36);
+  const flash = (at) => tl.fromTo("#flash", { visibility: "visible", opacity: 0.9 }, { opacity: 0, duration: 0.35, ease: "power2.out", immediateRender: false }, at).set("#flash", { visibility: "hidden" }, at + 0.36);
 
   // S1 0 - 4.5
   show("#s1", 0);
@@ -268,11 +267,12 @@
   window.DURATION = 47;
   tl.seek(0);
 </script>
-<script type="module">
-  import { mount } from "../../app/static/scene3d.js";
-  window.READY = false;
-  mount(document.getElementById("three"));
-  setTimeout(() => { window.READY = true; }, 800);
+<script src="../../app/static/art.js"></script>
+<script>
+  // The isometric layers illustration (headless Chrome's software WebGL can't render the live 3D scene).
+  document.getElementById("three").innerHTML = RootArt.heroArt();
+  TL.to("#three", { y: -18, rotate: 1.5, duration: 1.4, ease: "sine.inOut", repeat: 3, yoyo: true }, 5.6);
+  window.READY = true;
 </script>
 </body>
 </html>

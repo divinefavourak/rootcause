@@ -43,18 +43,29 @@ def render_frames():
     if FRAMES.exists():
         shutil.rmtree(FRAMES)
     FRAMES.mkdir(parents=True)
-    with sync_playwright() as p:
-        b = p.chromium.launch(args=["--allow-file-access-from-files", "--use-gl=angle", "--enable-webgl", "--ignore-gpu-blocklist"])
-        page = b.new_page(viewport={"width": 1280, "height": 720})
+    def open_page(browser):
+        page = browser.new_page(viewport={"width": 1280, "height": 720})
         page.goto((ROOT / "demo" / "motion" / "index.html").as_uri())
         page.wait_for_function("window.READY === true && !!window.TL", timeout=30000)
+        return page
+
+    with sync_playwright() as p:
+        b = p.chromium.launch(args=["--allow-file-access-from-files"])
+        page = open_page(b)
         duration = page.evaluate("window.DURATION")
         total = int(duration * FPS)
-        for i in range(total):
-            page.evaluate("(t) => window.TL.seek(t, false)", i / FPS)
-            page.screenshot(path=str(FRAMES / f"f{i:05d}.jpg"), type="jpeg", quality=90)
-            if i % 150 == 0:
-                print(f"frame {i}/{total}")
+        i, chunk = 0, 90
+        while i < total:
+            try:
+                for j in range(i, min(i + chunk, total)):
+                    # Return nothing: handing the GSAP timeline back to Python crashes the page.
+                    page.evaluate("(t) => { window.TL.seek(t, false); }", j / FPS)
+                    page.screenshot(path=str(FRAMES / f"f{j:05d}.jpg"), type="jpeg", quality=90)
+                i = min(i + chunk, total)
+                print(f"frame {i}/{total}", flush=True)
+            except Exception as exc:  # a crashed page: reopen and redo this chunk
+                print(f"retrying from frame {i}: {str(exc)[:80]}", flush=True)
+                page = open_page(b)
         b.close()
     return duration
 
